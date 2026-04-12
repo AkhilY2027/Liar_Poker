@@ -42,8 +42,8 @@ class CompareHandsTests(unittest.TestCase):
         self.assertEqual(compare_hands(a, b), 1)
 
     def test_optional_suit_comparison(self):
-        a = Hand(HandType.FLUSH, (13,), "S")
-        b = Hand(HandType.FLUSH, (13,), "H")
+        a = Hand(HandType.FLUSH, (13,), "SPADES")
+        b = Hand(HandType.FLUSH, (13,), "HEARTS")
         self.assertEqual(compare_hands(a, b, compare_suit=True), 1)
 
     def test_equal_hands(self):
@@ -62,10 +62,14 @@ class BidValidationTests(unittest.TestCase):
         self.assertTrue(is_valid_bid(prev, higher))
 
     def test_parse_hand_input(self):
-        hand = parse_hand_input("FLUSH 13,11,9 H")
+        hand = parse_hand_input("FLUSH A,J,9 HEARTS")
         self.assertEqual(hand.type, HandType.FLUSH)
-        self.assertEqual(hand.primary_ranks, (13, 11, 9))
-        self.assertEqual(hand.suit, "H")
+        self.assertEqual(hand.primary_ranks, (14, 11, 9))
+        self.assertEqual(hand.suit, "HEARTS")
+
+    def test_parse_face_card_pair(self):
+        hand = parse_hand_input("PAIR J")
+        self.assertEqual(hand.primary_ranks, (11,))
 
 
 if __name__ == "__main__":

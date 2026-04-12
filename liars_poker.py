@@ -17,10 +17,31 @@ class HandType(IntEnum):
 
 
 SUIT_ORDER = {
-    "C": 1,
-    "D": 2,
-    "H": 3,
-    "S": 4,
+    "CLUBS": 1,
+    "DIAMONDS": 2,
+    "HEARTS": 3,
+    "SPADES": 4,
+}
+
+RANK_ALIASES = {
+    "J": 11,
+    "Q": 12,
+    "K": 13,
+    "A": 14,
+}
+
+RANK_LABELS = {
+    11: "J",
+    12: "Q",
+    13: "K",
+    14: "A",
+}
+
+SUIT_ALIASES = {
+    "C": "CLUBS",
+    "D": "DIAMONDS",
+    "H": "HEARTS",
+    "S": "SPADES",
 }
 
 
@@ -66,7 +87,7 @@ def _validate_hand(hand_type: HandType, primary_ranks: Sequence[int], suit: Opti
             raise TypeError("suit must be a string if provided")
         normalized_suit = suit.upper()
         if normalized_suit not in SUIT_ORDER:
-            raise ValueError("suit must be one of C, D, H, S")
+            raise ValueError("suit must be one of CLUBS, DIAMONDS, HEARTS, SPADES")
 
 
 def compare_hands(a: Hand, b: Hand, compare_suit: bool = False) -> int:
@@ -128,10 +149,10 @@ def parse_hand_type(value: str) -> HandType:
 def parse_hand_input(raw: str) -> Hand:
     """Parse user input like:
 
-    PAIR 13
-    FULL_HOUSE 10,2
-    FLUSH 13,11,9 H
-    STRAIGHT_FLUSH 12 S
+    PAIR J
+    FULL_HOUSE K,10
+    FLUSH A,J,9 HEARTS
+    STRAIGHT_FLUSH Q SPADES
     """
 
     parts = raw.strip().split()
@@ -144,21 +165,32 @@ def parse_hand_input(raw: str) -> Hand:
     if not rank_tokens:
         raise ValueError("At least one rank is required")
 
-    try:
-        ranks = tuple(int(token) for token in rank_tokens)
-    except ValueError as exc:
-        raise ValueError("Ranks must be integers") from exc
+    parsed_ranks: list[int] = []
+    for token in rank_tokens:
+        upper = token.upper()
+        if upper in RANK_ALIASES:
+            parsed_ranks.append(RANK_ALIASES[upper])
+            continue
+        try:
+            parsed_ranks.append(int(upper))
+        except ValueError as exc:
+            raise ValueError("Ranks must be integers or one of J, Q, K, A") from exc
+
+    ranks = tuple(parsed_ranks)
 
     suit = parts[2] if len(parts) >= 3 else None
+    if suit is not None:
+        suit_upper = suit.upper()
+        suit = SUIT_ALIASES.get(suit_upper, suit_upper)
 
     return Hand(type=hand_type, primary_ranks=ranks, suit=suit)
 
 
 def format_hand(hand: Hand) -> str:
-    ranks = ",".join(str(r) for r in hand.primary_ranks)
+    ranks = ",".join(RANK_LABELS.get(r, str(r)) for r in hand.primary_ranks)
     if hand.suit:
-        return f"{hand.type.name} [{ranks}] {hand.suit.upper()}"
-    return f"{hand.type.name} [{ranks}]"
+        return f"{hand.type.name} {ranks} {hand.suit.upper()}"
+    return f"{hand.type.name} {ranks}"
 
 
 def run_cli() -> None:
@@ -168,7 +200,8 @@ def run_cli() -> None:
 
     print("Liar's Poker Bid Simulation")
     print("Enter bids as: <HAND_TYPE> <ranks comma-separated> [suit]")
-    print("Examples: PAIR 13 | FULL_HOUSE 10,2 | FLUSH 13,11 H")
+    print("Use J, Q, K, A for face cards and full suit names.")
+    print("Examples: PAIR J | FULL_HOUSE K,10 | FLUSH A,J HEARTS")
     print("Type 'liar' to call liar on the previous bid.")
 
     while True:
