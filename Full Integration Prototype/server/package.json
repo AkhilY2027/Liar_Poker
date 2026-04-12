@@ -1,0 +1,16 @@
+{
+  "name": "liars-poker-integration-server",
+  "version": "1.0.0",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node src/index.js",
+    "load:test": "node src/loadTest.js",
+    "load:test:heavy": "LOAD_GAMES=10 LOAD_PLAYERS=4 LOAD_BURST=20 node src/loadTest.js"
+  },
+  "dependencies": {
+    "socket.io": "^4.8.1",
+    "socket.io-client": "^4.8.1"
+  }
+}
