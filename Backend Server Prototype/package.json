@@ -1,0 +1,14 @@
+{
+  "name": "liar-poker-server",
+  "version": "1.0.0",
+  "description": "Socket.IO backend for a multiplayer Liar's Poker-style game",
+  "main": "server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "socket.io": "^4.8.1"
+  }
+}
