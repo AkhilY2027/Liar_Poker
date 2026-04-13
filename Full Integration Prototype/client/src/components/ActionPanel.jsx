@@ -12,6 +12,13 @@ import {
 
 const RANKS = Array.from({ length: 13 }, (_, i) => i + 2);
 
+function rankOptionsForType(type) {
+  if (type === "STRAIGHT" || type === "STRAIGHT_FLUSH") {
+    return RANKS.filter((rank) => rank >= 4);
+  }
+  return RANKS;
+}
+
 function ActionPanel({ onPlaceBid, onCallLiar, currentBid, isMyTurn }) {
   const [type, setType] = useState("");
   const [primaryRanks, setPrimaryRanks] = useState([2]);
@@ -46,6 +53,21 @@ function ActionPanel({ onPlaceBid, onCallLiar, currentBid, isMyTurn }) {
     if (!type || !needsSuit(type)) {
       setSuit("");
     }
+  }, [type]);
+
+  useEffect(() => {
+    if (type !== "STRAIGHT" && type !== "STRAIGHT_FLUSH") {
+      return;
+    }
+
+    setPrimaryRanks((prev) => {
+      if (!prev.length || prev[0] >= 4) {
+        return prev;
+      }
+      const next = [...prev];
+      next[0] = 4;
+      return next;
+    });
   }, [type]);
 
   useEffect(() => {
@@ -180,7 +202,7 @@ function ActionPanel({ onPlaceBid, onCallLiar, currentBid, isMyTurn }) {
             {primaryRanks.map((rank, index) => (
               <div className="rankRow" key={`rank-${index}`}>
                 <select value={rank} onChange={(event) => setRankAt(index, event.target.value)}>
-                  {RANKS.map((value) => (
+                  {rankOptionsForType(type).map((value) => (
                     <option key={value} value={value} disabled={isRankOptionDisabled(index, value)}>
                       {rankLabel(value)}
                     </option>

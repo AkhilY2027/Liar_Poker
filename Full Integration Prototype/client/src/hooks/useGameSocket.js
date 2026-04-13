@@ -8,6 +8,9 @@ export function useGameSocket(playerName) {
     currentTurn: null,
     currentBid: null,
     gameState: "waiting",
+    myHand: [],
+    myCardTarget: 0,
+    roundResult: null,
     log: [],
   });
   const [connected, setConnected] = useState(false);
@@ -35,6 +38,9 @@ export function useGameSocket(playerName) {
 
     client.on("game_update", (state) => {
       setGame(state);
+      if (state?.role === "player" || state?.role === "viewer") {
+        setRole(state.role);
+      }
       setError("");
     });
 

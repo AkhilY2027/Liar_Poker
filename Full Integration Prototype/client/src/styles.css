@@ -158,6 +158,56 @@ button:disabled {
   color: var(--danger);
 }
 
+.handGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(86px, 1fr));
+  gap: 0.6rem;
+}
+
+.playingCard {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f9fbff;
+  padding: 0.25rem;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.playingCard img {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 128px;
+  object-fit: contain;
+}
+
+.roundResultPopup {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  width: min(720px, calc(100vw - 24px));
+  background: #0f1e34;
+  color: #f8fbff;
+  border: 1px solid #335178;
+  border-radius: 12px;
+  box-shadow: 0 12px 26px rgba(5, 10, 20, 0.35);
+  padding: 0.85rem 1rem;
+  z-index: 1200;
+}
+
+.roundResultTitle {
+  margin: 0;
+  font-weight: 700;
+  font-size: 0.94rem;
+  color: #b6d5ff;
+}
+
+.roundResultMessage {
+  margin: 0.28rem 0 0;
+}
+
 @media (max-width: 840px) {
   .grid.two {
     grid-template-columns: 1fr;

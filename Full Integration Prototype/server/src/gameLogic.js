@@ -29,6 +29,8 @@ function createGame(id = "main-room") {
     pausedReason: null,
     processingAction: false,
     turnDeadlineMs: null,
+    roundNumber: 0,
+    roundResult: null,
   };
 }
 
@@ -37,6 +39,12 @@ function addOrReconnectPlayer(game, player) {
   if (existing) {
     existing.active = true;
     existing.name = sanitizeName(player.name || existing.name);
+    if (!Number.isInteger(existing.cardTarget)) {
+      existing.cardTarget = 3;
+    }
+    if (!Array.isArray(existing.cards)) {
+      existing.cards = [];
+    }
     return existing;
   }
 
@@ -44,6 +52,8 @@ function addOrReconnectPlayer(game, player) {
     id: player.id,
     name: sanitizeName(player.name),
     active: true,
+    cardTarget: Number.isInteger(player.cardTarget) ? player.cardTarget : 3,
+    cards: [],
   };
   game.players.push(created);
   return created;
@@ -81,6 +91,7 @@ function startGameIfReady(game) {
     game.currentBid = null;
     game.reveal = null;
     game.pausedReason = null;
+    dealRoundCards(game);
     appendLog(game, "Game started.");
   }
 
@@ -94,6 +105,7 @@ function resetRound(game) {
   game.currentTurn = activePlayers[0]?.id || null;
   game.reveal = null;
   game.pausedReason = null;
+  dealRoundCards(game);
 }
 
 function pauseGame(game, reason) {
@@ -224,6 +236,10 @@ function validateHand(hand) {
     throw new Error(`${hand.type} requires exactly 1 rank`);
   }
 
+  if ((hand.type === "STRAIGHT" || hand.type === "STRAIGHT_FLUSH") && hand.primaryRanks[0] < 4) {
+    throw new Error(`${hand.type} must be at least 4-high`);
+  }
+
   if (hand.type === "PAIR" && hand.primaryRanks.length !== 1) {
     throw new Error("PAIR requires exactly 1 rank");
   }
@@ -279,6 +295,104 @@ function sanitizeName(name) {
   return cleaned.length ? cleaned.slice(0, 24) : "Player";
 }
 
+function dealRoundCards(game) {
+  const activePlayers = getActivePlayers(game);
+  if (!activePlayers.length) {
+    return;
+  }
+
+  const deck = buildDeck();
+  shuffle(deck);
+
+  for (const player of activePlayers) {
+    const count = Math.max(1, Number(player.cardTarget || 3));
+    player.cards = deck.splice(0, count);
+  }
+
+  game.roundNumber = Number(game.roundNumber || 0) + 1;
+}
+
+function buildDeck() {
+  const deck = [];
+  const suits = Object.keys(SUIT_ORDER);
+  for (let rank = 2; rank <= 14; rank += 1) {
+    for (const suit of suits) {
+      deck.push({ rank, suit });
+    }
+  }
+  return deck;
+}
+
+function shuffle(cards) {
+  for (let i = cards.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    const tmp = cards[i];
+    cards[i] = cards[j];
+    cards[j] = tmp;
+  }
+}
+
+function isBidAchievableFromActiveHands(game, bid) {
+  const cards = getActivePlayers(game).flatMap((player) => player.cards || []);
+  if (!cards.length) {
+    return false;
+  }
+
+  const rankCounts = new Map();
+  const suitToRanks = new Map();
+  for (const card of cards) {
+    rankCounts.set(card.rank, (rankCounts.get(card.rank) || 0) + 1);
+    if (!suitToRanks.has(card.suit)) {
+      suitToRanks.set(card.suit, []);
+    }
+    suitToRanks.get(card.suit).push(card.rank);
+  }
+
+  const [a, b] = bid.primaryRanks;
+  if (bid.type === "HIGH_CARD") {
+    return (rankCounts.get(a) || 0) >= 1;
+  }
+  if (bid.type === "PAIR") {
+    return (rankCounts.get(a) || 0) >= 2;
+  }
+  if (bid.type === "THREE_OF_A_KIND") {
+    return (rankCounts.get(a) || 0) >= 3;
+  }
+  if (bid.type === "TWO_PAIR") {
+    return (rankCounts.get(a) || 0) >= 2 && (rankCounts.get(b) || 0) >= 2;
+  }
+  if (bid.type === "FULL_HOUSE") {
+    return (rankCounts.get(a) || 0) >= 3 && (rankCounts.get(b) || 0) >= 2;
+  }
+  if (bid.type === "STRAIGHT") {
+    return hasStraight(cards.map((card) => card.rank), a);
+  }
+  if (bid.type === "FLUSH") {
+    const suited = suitToRanks.get(bid.suit) || [];
+    if (suited.length < 5) {
+      return false;
+    }
+
+    return bid.primaryRanks.every((rank) => suited.includes(rank));
+  }
+  if (bid.type === "STRAIGHT_FLUSH") {
+    const suited = suitToRanks.get(bid.suit) || [];
+    return hasStraight(suited, a);
+  }
+
+  return false;
+}
+
+function hasStraight(ranks, highRank) {
+  const needed = [highRank, highRank - 1, highRank - 2];
+  if (needed.some((rank) => rank < 2)) {
+    return false;
+  }
+
+  const set = new Set(ranks);
+  return needed.every((rank) => set.has(rank));
+}
+
 module.exports = {
   createGame,
   addOrReconnectPlayer,
@@ -295,4 +409,5 @@ module.exports = {
   normalizeHand,
   compareHands,
   isValidBid,
+  isBidAchievableFromActiveHands,
 };

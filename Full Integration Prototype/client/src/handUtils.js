@@ -137,3 +137,35 @@ export function compareHandsSimple(a, b) {
 
   return 0;
 }
+
+export function cardImageName(card) {
+  if (!card) {
+    return "";
+  }
+
+  const rank = Number(card.rank);
+  const rankPart =
+    rank === 14
+      ? "ace"
+      : rank === 13
+        ? "king"
+        : rank === 12
+          ? "queen"
+          : rank === 11
+            ? "jack"
+            : String(rank);
+
+  const suitPart = String(card.suit || "").toLowerCase();
+  if (!suitPart) {
+    return "";
+  }
+
+  return `${rankPart}_of_${suitPart}.png`;
+}
+
+export function cardLabel(card) {
+  if (!card) {
+    return "Unknown card";
+  }
+  return `${rankLabel(card.rank)} of ${String(card.suit || "").toLowerCase()}`;
+}

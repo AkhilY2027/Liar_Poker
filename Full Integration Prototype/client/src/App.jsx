@@ -4,6 +4,8 @@ import ConnectionPanel from "./components/ConnectionPanel";
 import CurrentBidDisplay from "./components/CurrentBidDisplay";
 import GameLog from "./components/GameLog";
 import GameTable from "./components/GameTable";
+import MyHand from "./components/MyHand";
+import RoundResultPopup from "./components/RoundResultPopup";
 import { useGameSocket } from "./hooks/useGameSocket";
 
 function App() {
@@ -35,11 +37,15 @@ function App() {
           role={roleLabel}
           assignedPlayerName={myPlayer?.name || ""}
         />
-        <CurrentBidDisplay bid={game.currentBid} gameState={game.gameState} />
+        <CurrentBidDisplay bid={game.currentBid} gameState={game.gameState} turnDeadlineMs={game.turnDeadlineMs} />
       </div>
 
       <div className="grid two">
         <GameTable players={players} currentTurn={game.currentTurn} myPlayerId={socketId} />
+        <MyHand role={roleLabel} cards={game.myHand || []} cardTarget={game.myCardTarget || 0} />
+      </div>
+
+      <div className="grid two">
         <ActionPanel
           onPlaceBid={placeBid}
           onCallLiar={callLiar}
@@ -49,6 +55,7 @@ function App() {
       </div>
 
       <GameLog entries={game.log || []} />
+      <RoundResultPopup roundResult={game.roundResult} />
     </main>
   );
 }
