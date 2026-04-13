@@ -12,6 +12,8 @@ export function useGameSocket(playerName) {
   });
   const [connected, setConnected] = useState(false);
   const [error, setError] = useState("");
+  const [socketId, setSocketId] = useState(null);
+  const [role, setRole] = useState("viewer");
 
   useEffect(() => {
     const client = createSocketClient();
@@ -19,12 +21,16 @@ export function useGameSocket(playerName) {
 
     client.on("connect", () => {
       setConnected(true);
+      setSocketId(client.id || null);
+      setRole("viewer");
       setError("");
       client.emit("join_game", { name: playerName });
     });
 
     client.on("disconnect", () => {
       setConnected(false);
+      setSocketId(null);
+      setRole("viewer");
     });
 
     client.on("game_update", (state) => {
@@ -34,6 +40,12 @@ export function useGameSocket(playerName) {
 
     client.on("invalid_move", ({ message }) => {
       setError(message || "Invalid move");
+    });
+
+    client.on("role_update", ({ role: nextRole } = {}) => {
+      if (nextRole === "player" || nextRole === "viewer") {
+        setRole(nextRole);
+      }
     });
 
     return () => {
@@ -67,6 +79,8 @@ export function useGameSocket(playerName) {
     game,
     connected,
     error,
+    socketId,
+    role,
     ...actions,
   };
 }

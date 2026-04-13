@@ -8,9 +8,17 @@ import { useGameSocket } from "./hooks/useGameSocket";
 
 function App() {
   const [playerName] = useState(() => `Player-${Math.floor(Math.random() * 900 + 100)}`);
-  const { game, connected, error, placeBid, callLiar } = useGameSocket(playerName);
+  const { game, connected, error, socketId, role, placeBid, callLiar } = useGameSocket(playerName);
 
   const players = useMemo(() => game.players || [], [game.players]);
+  const isMyTurn = useMemo(() => Boolean(socketId) && game.currentTurn === socketId, [game.currentTurn, socketId]);
+  const myPlayer = useMemo(() => players.find((player) => player.id === socketId) || null, [players, socketId]);
+  const roleLabel = useMemo(() => {
+    if (myPlayer) {
+      return "player";
+    }
+    return role;
+  }, [myPlayer, role]);
 
   return (
     <main className="layout">
@@ -20,13 +28,24 @@ function App() {
       </header>
 
       <div className="grid two">
-        <ConnectionPanel connected={connected} playerName={playerName} error={error} />
+        <ConnectionPanel
+          connected={connected}
+          playerName={playerName}
+          error={error}
+          role={roleLabel}
+          assignedPlayerName={myPlayer?.name || ""}
+        />
         <CurrentBidDisplay bid={game.currentBid} gameState={game.gameState} />
       </div>
 
       <div className="grid two">
-        <GameTable players={players} currentTurn={game.currentTurn} />
-        <ActionPanel onPlaceBid={placeBid} onCallLiar={callLiar} />
+        <GameTable players={players} currentTurn={game.currentTurn} myPlayerId={socketId} />
+        <ActionPanel
+          onPlaceBid={placeBid}
+          onCallLiar={callLiar}
+          currentBid={game.currentBid}
+          isMyTurn={isMyTurn}
+        />
       </div>
 
       <GameLog entries={game.log || []} />

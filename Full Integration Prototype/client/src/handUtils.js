@@ -11,6 +11,17 @@ export const HAND_TYPES = [
 
 export const SUITS = ["CLUBS", "DIAMONDS", "HEARTS", "SPADES"];
 
+export const HAND_STRENGTH = {
+  HIGH_CARD: 1,
+  PAIR: 2,
+  TWO_PAIR: 3,
+  THREE_OF_A_KIND: 4,
+  STRAIGHT: 5,
+  FLUSH: 6,
+  FULL_HOUSE: 7,
+  STRAIGHT_FLUSH: 8,
+};
+
 const RANK_LABELS = {
   2: "Two",
   3: "Three",
@@ -91,4 +102,38 @@ export function formatHand(hand) {
     return `${rankLabel(ranks[0])}-high straight flush in ${suit}`;
   }
   return `${handTypeLabel(hand.type)} ${ranks.map(rankLabel).join(",")}`;
+}
+
+export function compareHandsSimple(a, b) {
+  if (!a && !b) {
+    return 0;
+  }
+  if (!a) {
+    return -1;
+  }
+  if (!b) {
+    return 1;
+  }
+
+  const aStrength = HAND_STRENGTH[a.type] || 0;
+  const bStrength = HAND_STRENGTH[b.type] || 0;
+  if (aStrength !== bStrength) {
+    return aStrength > bStrength ? 1 : -1;
+  }
+
+  const aRanks = [...(a.primaryRanks || [])].sort((x, y) => y - x);
+  const bRanks = [...(b.primaryRanks || [])].sort((x, y) => y - x);
+  const len = Math.min(aRanks.length, bRanks.length);
+
+  for (let i = 0; i < len; i += 1) {
+    if (aRanks[i] !== bRanks[i]) {
+      return aRanks[i] > bRanks[i] ? 1 : -1;
+    }
+  }
+
+  if (aRanks.length !== bRanks.length) {
+    return aRanks.length > bRanks.length ? 1 : -1;
+  }
+
+  return 0;
 }

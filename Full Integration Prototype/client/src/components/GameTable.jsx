@@ -1,6 +1,6 @@
 import React from "react";
 
-function GameTable({ players, currentTurn }) {
+function GameTable({ players, currentTurn, myPlayerId }) {
   return (
     <section className="card">
       <h2>Players</h2>
@@ -10,9 +10,9 @@ function GameTable({ players, currentTurn }) {
             key={player.id}
             className={player.id === currentTurn ? "row current" : "row"}
           >
-            <span>{player.name}</span>
+            <span className={player.id === myPlayerId ? "playerName self" : "playerName"}>{player.name}</span>
             <span className="status">
-              {player.active ? (player.id === currentTurn ? "Your move" : "Active") : "Away"}
+              {player.id === currentTurn ? "Currently bidding" : "Waiting"}
             </span>
           </li>
         ))}

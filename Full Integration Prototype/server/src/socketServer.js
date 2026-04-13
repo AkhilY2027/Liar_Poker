@@ -19,6 +19,7 @@ const DEFAULT_ROOM_ID = "main-room";
 const DISCONNECT_MODE = String(process.env.DISCONNECT_MODE || "autofold").toLowerCase();
 const TIMEOUT_ACTION = String(process.env.TIMEOUT_ACTION || "pass").toLowerCase();
 const TURN_TIMEOUT_MS = Number(process.env.TURN_TIMEOUT_MS || 20000);
+const MAX_PLAYERS = 8;
 
 const games = new Map();
 const timers = new Map();
@@ -38,10 +39,27 @@ function registerSocketHandlers(io) {
     socket.on("join_game", ({ name, gameId } = {}) => {
       const roomId = sanitizeGameId(gameId) || DEFAULT_ROOM_ID;
       const game = getOrCreateGame(roomId);
-
-      const player = addOrReconnectPlayer(game, { id: socket.id, name });
       socket.join(roomId);
       socket.data.gameId = roomId;
+
+      removeViewer(game, socket.id);
+
+      const label = nextPlayerLabel(game);
+      const atCapacity = getActivePlayers(game).length >= MAX_PLAYERS || !label;
+
+      if (atCapacity) {
+        addViewer(game, { id: socket.id, name });
+        socket.data.role = "viewer";
+
+        appendLog(game, `${sanitizeViewerName(name)} joined ${roomId} as viewer (table full).`);
+        logInfo("join_game_viewer", { roomId, viewerId: socket.id });
+        socket.emit("role_update", { role: "viewer", reason: "table_full" });
+        broadcastGame(io, roomId);
+        return;
+      }
+
+      const player = addOrReconnectPlayer(game, { id: socket.id, name: label });
+      socket.data.role = "player";
 
       appendLog(game, `${player.name} joined ${roomId}.`);
       logInfo("join_game", { roomId, playerId: socket.id, playerName: player.name });
@@ -58,6 +76,11 @@ function registerSocketHandlers(io) {
       }
 
       withGameLock(io, game, socket, "place_bid", () => {
+        if (socket.data.role === "viewer") {
+          emitInvalid(socket, "Viewers cannot place bids.");
+          return;
+        }
+
         const player = game.players.find((item) => item.id === socket.id);
         if (!player || !player.active) {
           emitInvalid(socket, "Join the game before placing bids.");
@@ -101,6 +124,11 @@ function registerSocketHandlers(io) {
       }
 
       withGameLock(io, game, socket, "call_liar", () => {
+        if (socket.data.role === "viewer") {
+          emitInvalid(socket, "Viewers cannot call liar.");
+          return;
+        }
+
         const player = game.players.find((item) => item.id === socket.id);
         if (!player || !player.active) {
           emitInvalid(socket, "Join the game before calling liar.");
@@ -127,7 +155,7 @@ function registerSocketHandlers(io) {
         appendLog(game, `${player.name} called LIAR on ${previous.name}. Round reset.`);
         logInfo("call_liar", { roomId: game.id, caller: player.id, challenged: previous.id });
 
-        resetRound(game);
+        resetRoundAndRefill(io, game);
         scheduleTurnTimer(io, game);
       });
     });
@@ -139,6 +167,12 @@ function registerSocketHandlers(io) {
       }
 
       withGameLock(io, game, socket, "disconnect", () => {
+        const viewerRemoved = removeViewer(game, socket.id);
+        if (viewerRemoved) {
+          appendLog(game, `A viewer disconnected.`);
+          return;
+        }
+
         const player = game.players.find((item) => item.id === socket.id);
         if (!player) {
           return;
@@ -169,7 +203,14 @@ function registerSocketHandlers(io) {
           const active = getActivePlayers(game);
           if (!active.length) {
             clearGameTimer(game.id);
-            games.delete(game.id);
+            if (!game.viewers.length) {
+              games.delete(game.id);
+            } else {
+              game.gameState = "waiting";
+              game.currentTurn = null;
+              game.currentBid = null;
+              game.pausedReason = null;
+            }
             return;
           }
 
@@ -268,7 +309,7 @@ function scheduleTurnTimer(io, game) {
             sameGame,
             `${timedOutPlayer.name} timed out. Auto-called LIAR on ${previous.name}. Round reset.`
           );
-          resetRound(sameGame);
+          resetRoundAndRefill(io, sameGame);
         }
       } else {
         appendLog(sameGame, `${timedOutPlayer.name} timed out. Auto-pass applied.`);
@@ -303,7 +344,11 @@ function getOrCreateGame(gameId) {
   if (!games.has(gameId)) {
     games.set(gameId, createGame(gameId));
   }
-  return games.get(gameId);
+  const game = games.get(gameId);
+  if (!Array.isArray(game.viewers)) {
+    game.viewers = [];
+  }
+  return game;
 }
 
 function getSocketGame(socket) {
@@ -334,9 +379,106 @@ function serializeGame(state) {
     currentBid: state.currentBid,
     gameState: state.gameState,
     log: state.log,
+    viewerCount: state.viewers?.length || 0,
+    maxPlayers: MAX_PLAYERS,
     pausedReason: state.pausedReason,
     turnDeadlineMs: state.turnDeadlineMs,
   };
+}
+
+function resetRoundAndRefill(io, game) {
+  removeInactivePlayers(game);
+  const promoted = promoteViewers(io, game);
+  resetRound(game);
+
+  if (promoted > 0) {
+    appendLog(game, `${promoted} viewer${promoted === 1 ? " was" : "s were"} added as new player${
+      promoted === 1 ? "" : "s"
+    }.`);
+  }
+}
+
+function removeInactivePlayers(game) {
+  game.players = game.players.filter((player) => player.active);
+}
+
+function promoteViewers(io, game) {
+  if (!Array.isArray(game.viewers) || !game.viewers.length) {
+    return 0;
+  }
+
+  let promoted = 0;
+  while (getActivePlayers(game).length < MAX_PLAYERS && game.viewers.length) {
+    const nextViewer = game.viewers.shift();
+    if (!nextViewer) {
+      break;
+    }
+
+    const viewerSocket = io.sockets.sockets.get(nextViewer.id);
+    if (!viewerSocket) {
+      continue;
+    }
+
+    const label = nextPlayerLabel(game);
+    if (!label) {
+      break;
+    }
+
+    const player = addOrReconnectPlayer(game, { id: nextViewer.id, name: label });
+    viewerSocket.data.role = "player";
+    viewerSocket.emit("role_update", { role: "player", reason: "slot_opened" });
+    appendLog(game, `${player.name} moved from viewer to player.`);
+    promoted += 1;
+  }
+
+  return promoted;
+}
+
+function addViewer(game, viewer) {
+  if (!Array.isArray(game.viewers)) {
+    game.viewers = [];
+  }
+  if (game.viewers.some((item) => item.id === viewer.id)) {
+    return;
+  }
+  game.viewers.push({
+    id: viewer.id,
+    name: sanitizeViewerName(viewer.name),
+  });
+}
+
+function removeViewer(game, viewerId) {
+  if (!Array.isArray(game.viewers) || !game.viewers.length) {
+    return false;
+  }
+
+  const before = game.viewers.length;
+  game.viewers = game.viewers.filter((viewer) => viewer.id !== viewerId);
+  return game.viewers.length < before;
+}
+
+function nextPlayerLabel(game) {
+  const used = new Set(
+    game.players
+      .map((player) => {
+        const match = /^Player\s+(\d+)$/i.exec(String(player.name || ""));
+        return match ? Number(match[1]) : null;
+      })
+      .filter((value) => Number.isInteger(value) && value >= 1 && value <= MAX_PLAYERS)
+  );
+
+  for (let i = 1; i <= MAX_PLAYERS; i += 1) {
+    if (!used.has(i)) {
+      return `Player ${i}`;
+    }
+  }
+
+  return null;
+}
+
+function sanitizeViewerName(name) {
+  const safe = String(name || "Viewer").trim();
+  return safe.length ? safe.slice(0, 24) : "Viewer";
 }
 
 function formatForLog(hand) {

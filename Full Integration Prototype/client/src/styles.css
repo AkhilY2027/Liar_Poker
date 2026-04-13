@@ -89,6 +89,10 @@ body {
   background: #edf5ff;
 }
 
+.playerName.self {
+  font-weight: 700;
+}
+
 .status,
 .muted {
   color: var(--muted);
@@ -124,6 +128,12 @@ button {
   background: var(--accent);
   color: white;
   cursor: pointer;
+}
+
+button:disabled {
+  background: #97a3b8;
+  color: #eef2f7;
+  cursor: not-allowed;
 }
 
 .ghost {
