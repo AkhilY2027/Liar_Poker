@@ -1,9 +1,11 @@
 import React, { useEffect, useMemo, useState } from "react";
 import ActionPanel from "./components/ActionPanel";
 import ConnectionPanel from "./components/ConnectionPanel";
+import GameSettingsPanel from "./components/GameSettingsPanel";
 import GameLog from "./components/GameLog";
 import GameTable from "./components/GameTable";
 import MyHand from "./components/MyHand";
+import PlayerSettingsPanel from "./components/PlayerSettingsPanel";
 import RoundResultPopup from "./components/RoundResultPopup";
 import { formatHand } from "./handUtils";
 import { useGameSocket } from "./hooks/useGameSocket";
@@ -13,7 +15,8 @@ function App() {
   const [screen, setScreen] = useState("table");
   const [settingsTab, setSettingsTab] = useState("play");
   const [nowMs, setNowMs] = useState(Date.now());
-  const { game, connected, error, socketId, role, placeBid, callLiar, resetGame } = useGameSocket(playerName);
+  const { game, connected, error, socketId, role, placeBid, callLiar, resetGame, setDisplayName, updateGameSettings } =
+    useGameSocket(playerName);
 
   const players = useMemo(() => game.players || [], [game.players]);
   const isMyTurn = useMemo(() => Boolean(socketId) && game.currentTurn === socketId, [game.currentTurn, socketId]);
@@ -30,11 +33,11 @@ function App() {
   }, [myPlayer, role]);
 
   const headerIdentity = useMemo(() => {
-    if (myPlayer?.name) {
-      return myPlayer.name;
+    if (myPlayer?.displayName || myPlayer?.name) {
+      return myPlayer.displayName || myPlayer.name;
     }
     return roleLabel === "viewer" ? "Viewer" : playerName;
-  }, [myPlayer?.name, playerName, roleLabel]);
+  }, [myPlayer?.displayName, myPlayer?.name, playerName, roleLabel]);
 
   const displaySeats = useMemo(() => {
     const seatPlayers = [...players].slice(0, 8);
@@ -54,6 +57,22 @@ function App() {
     const ms = Math.max(0, game.turnDeadlineMs - nowMs);
     return `${(ms / 1000).toFixed(1)}s`;
   }, [game.turnDeadlineMs, nowMs]);
+
+  const gameSettings = useMemo(
+    () => ({
+      turnTimeoutSeconds: Number(game?.settings?.turnTimeoutSeconds || 60),
+      maxCardsToLose: Number(game?.settings?.maxCardsToLose || 6),
+      autoFoldBehavior: String(game?.settings?.autoFoldBehavior || "none"),
+    }),
+    [game?.settings?.autoFoldBehavior, game?.settings?.maxCardsToLose, game?.settings?.turnTimeoutSeconds]
+  );
+
+  const displayedPlayerName = useMemo(() => {
+    if (myPlayer?.displayName || myPlayer?.name) {
+      return myPlayer.displayName || myPlayer.name;
+    }
+    return roleLabel === "viewer" ? "Viewer" : "";
+  }, [myPlayer?.displayName, myPlayer?.name, roleLabel]);
 
   useEffect(() => {
     const id = setInterval(() => setNowMs(Date.now()), 200);
@@ -109,6 +128,13 @@ function App() {
             >
               Hand History
             </button>
+            <button
+              className={`settingsNavBtn ${settingsTab === "game" ? "active" : ""}`}
+              type="button"
+              onClick={() => setSettingsTab("game")}
+            >
+              Game Settings
+            </button>
           </aside>
 
           <div className="settingsContent">
@@ -121,13 +147,28 @@ function App() {
                     playerName={playerName}
                     error={error}
                     role={roleLabel}
-                    assignedPlayerName={myPlayer?.name || ""}
+                    assignedPlayerName={displayedPlayerName}
                   />
                   <GameTable players={players} currentTurn={game.currentTurn} myPlayerId={socketId} />
                 </>
               ) : null}
 
               {settingsTab === "history" ? <GameLog entries={game.log || []} /> : null}
+              {settingsTab === "play" ? (
+                <PlayerSettingsPanel
+                  currentDisplayName={displayedPlayerName}
+                  onSaveDisplayName={setDisplayName}
+                  disabled={!connected}
+                />
+              ) : null}
+
+              {settingsTab === "game" ? (
+                <GameSettingsPanel
+                  settings={gameSettings}
+                  disabled={!connected}
+                  onUpdateSettings={(partial) => updateGameSettings(partial)}
+                />
+              ) : null}
             </div>
           </div>
         </section>
@@ -140,7 +181,7 @@ function App() {
                   {leftSeats.map((player, index) =>
                     player ? (
                       <div className={`seatRow ${player.id === game.currentTurn ? "current" : ""}`} key={player.id}>
-                        <div className="seatName">{player.id === socketId ? "YOU" : player.name}</div>
+                        <div className="seatName">{player.id === socketId ? "YOU" : player.displayName || player.name}</div>
                         <div className="seatCards">
                           {Array.from({ length: Math.max(0, player.cardCount || 0) }).map((_, i) => (
                             <span key={`${player.id}-${i}`} />
@@ -160,7 +201,13 @@ function App() {
                     <p className="challengeTitle">CURRENT CHALLENGE</p>
                     <p className="challengeValue">{formatHand(game.currentBid)}</p>
                     <p className="challengeSub">
-                      {currentTurnPlayer ? `${currentTurnPlayer.id === socketId ? "YOUR" : `${currentTurnPlayer.name}'S`} TURN` : "WAITING"}
+                      {currentTurnPlayer
+                        ? `${
+                            currentTurnPlayer.id === socketId
+                              ? "YOUR"
+                              : `${currentTurnPlayer.displayName || currentTurnPlayer.name}'S`
+                          } TURN`
+                        : "WAITING"}
                     </p>
                     <p className="challengeTimer">{secondsLeft}</p>
                   </div>
@@ -174,7 +221,7 @@ function App() {
                   {rightSeats.map((player, index) =>
                     player ? (
                       <div className={`seatRow ${player.id === game.currentTurn ? "current" : ""}`} key={player.id}>
-                        <div className="seatName">{player.id === socketId ? "YOU" : player.name}</div>
+                        <div className="seatName">{player.id === socketId ? "YOU" : player.displayName || player.name}</div>
                         <div className="seatCards">
                           {Array.from({ length: Math.max(0, player.cardCount || 0) }).map((_, i) => (
                             <span key={`${player.id}-${i}`} />

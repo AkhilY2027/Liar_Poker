@@ -468,17 +468,23 @@ body {
 }
 
 select,
+input,
 button {
   font: inherit;
 }
 
-select {
+select,
+input[type="text"] {
   width: 100%;
   border: 1px solid #3a4857;
   background: #10171d;
   color: #dce7f0;
   border-radius: 8px;
   padding: 0.45rem;
+}
+
+input[type="range"] {
+  width: 100%;
 }
 
 .rankRow {

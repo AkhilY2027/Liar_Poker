@@ -17,7 +17,14 @@ const SUIT_ORDER = Object.freeze({
   SPADES: 4,
 });
 
-function createGame(id = "main-room") {
+const DEFAULT_GAME_SETTINGS = Object.freeze({
+  turnTimeoutSeconds: 60,
+  maxCardsToLose: 6,
+  autoFoldBehavior: "none",
+});
+
+function createGame(id = "main-room", settings = null) {
+  const normalizedSettings = normalizeGameSettings(settings, DEFAULT_GAME_SETTINGS);
   return {
     id,
     players: [],
@@ -31,6 +38,7 @@ function createGame(id = "main-room") {
     turnDeadlineMs: null,
     roundNumber: 0,
     roundResult: null,
+    settings: normalizedSettings,
   };
 }
 
@@ -38,7 +46,12 @@ function addOrReconnectPlayer(game, player) {
   const existing = game.players.find((item) => item.id === player.id);
   if (existing) {
     existing.active = true;
-    existing.name = sanitizeName(player.name || existing.name);
+    existing.name = sanitizeName(existing.name || player.name);
+    if (player.displayName !== undefined) {
+      existing.displayName = sanitizeDisplayName(player.displayName, existing.name);
+    } else if (!existing.displayName) {
+      existing.displayName = existing.name;
+    }
     if (!Number.isInteger(existing.cardTarget)) {
       existing.cardTarget = 3;
     }
@@ -51,12 +64,40 @@ function addOrReconnectPlayer(game, player) {
   const created = {
     id: player.id,
     name: sanitizeName(player.name),
+    displayName: sanitizeDisplayName(player.displayName, player.name),
     active: true,
     cardTarget: Number.isInteger(player.cardTarget) ? player.cardTarget : 3,
     cards: [],
   };
   game.players.push(created);
   return created;
+}
+
+function updatePlayerDisplayName(game, playerId, displayName) {
+  const player = game.players.find((item) => item.id === playerId);
+  if (!player) {
+    return null;
+  }
+
+  player.displayName = sanitizeDisplayName(displayName, player.name);
+  return player;
+}
+
+function normalizeGameSettings(settings, currentSettings = DEFAULT_GAME_SETTINGS) {
+  const source = settings && typeof settings === "object" ? settings : {};
+  const base = currentSettings && typeof currentSettings === "object" ? currentSettings : DEFAULT_GAME_SETTINGS;
+
+  const turnTimeoutSeconds = clampInt(source.turnTimeoutSeconds, 20, 120, Number(base.turnTimeoutSeconds || 60), 5);
+  const maxCardsToLose = clampInt(source.maxCardsToLose, 6, 8, Number(base.maxCardsToLose || 6));
+
+  const rawAutoFold = typeof source.autoFoldBehavior === "string" ? source.autoFoldBehavior.trim() : "";
+  const autoFoldBehavior = rawAutoFold || String(base.autoFoldBehavior || "none");
+
+  return {
+    turnTimeoutSeconds,
+    maxCardsToLose,
+    autoFoldBehavior,
+  };
 }
 
 function markPlayerInactive(game, playerId) {
@@ -295,6 +336,30 @@ function sanitizeName(name) {
   return cleaned.length ? cleaned.slice(0, 24) : "Player";
 }
 
+function sanitizeDisplayName(displayName, fallbackName = "Player") {
+  const fallback = sanitizeName(fallbackName);
+  const cleaned = String(displayName || "").trim();
+  return cleaned.length ? cleaned.slice(0, 24) : fallback;
+}
+
+function clampInt(value, min, max, fallback, step = 1) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    return fallback;
+  }
+
+  let next = Math.round(numeric);
+  next = Math.max(min, Math.min(max, next));
+
+  if (step > 1) {
+    const offset = next - min;
+    next = min + Math.round(offset / step) * step;
+    next = Math.max(min, Math.min(max, next));
+  }
+
+  return next;
+}
+
 function dealRoundCards(game) {
   const activePlayers = getActivePlayers(game);
   if (!activePlayers.length) {
@@ -394,8 +459,11 @@ function hasStraight(ranks, highRank) {
 }
 
 module.exports = {
+  DEFAULT_GAME_SETTINGS,
   createGame,
   addOrReconnectPlayer,
+  updatePlayerDisplayName,
+  normalizeGameSettings,
   markPlayerInactive,
   removePlayer,
   getActivePlayers,

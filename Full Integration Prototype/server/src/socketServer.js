@@ -1,6 +1,9 @@
 const {
+  DEFAULT_GAME_SETTINGS,
   createGame,
   addOrReconnectPlayer,
+  updatePlayerDisplayName,
+  normalizeGameSettings,
   markPlayerInactive,
   removePlayer,
   getActivePlayers,
@@ -19,20 +22,29 @@ const {
 const DEFAULT_ROOM_ID = "main-room";
 const DISCONNECT_MODE = String(process.env.DISCONNECT_MODE || "autofold").toLowerCase();
 const TIMEOUT_ACTION = String(process.env.TIMEOUT_ACTION || "pass").toLowerCase();
-const TURN_TIMEOUT_MS = Number(process.env.TURN_TIMEOUT_MS || 20000);
 const MAX_PLAYERS = 8;
+
+const DEFAULT_TURN_TIMEOUT_SECONDS = clampInt(
+  Math.round(Number(process.env.TURN_TIMEOUT_MS || 60000) / 1000),
+  20,
+  120,
+  60,
+  5
+);
+const DEFAULT_MAX_CARDS_TO_LOSE = clampInt(Number(process.env.MAX_CARDS_TO_LOSE || 6), 6, 8, 6);
+const DEFAULT_AUTO_FOLD_BEHAVIOR = String(process.env.AUTO_FOLD_BEHAVIOR || DEFAULT_GAME_SETTINGS.autoFoldBehavior || "none");
 
 const games = new Map();
 const timers = new Map();
 
-games.set(DEFAULT_ROOM_ID, createGame(DEFAULT_ROOM_ID));
+games.set(DEFAULT_ROOM_ID, createGame(DEFAULT_ROOM_ID, defaultGameSettings()));
 
 function registerSocketHandlers(io) {
   io.on("connection", (socket) => {
     socket.on("create_game", ({ gameId } = {}) => {
       const roomId = sanitizeGameId(gameId) || `room-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
       if (!games.has(roomId)) {
-        games.set(roomId, createGame(roomId));
+        games.set(roomId, createGame(roomId, defaultGameSettings()));
       }
       socket.emit("game_created", { gameId: roomId });
     });
@@ -66,11 +78,86 @@ function registerSocketHandlers(io) {
       const player = addOrReconnectPlayer(game, { id: socket.id, name: label, cardTarget: 3 });
       socket.data.role = "player";
 
-      appendLog(game, `${player.name} joined ${roomId}.`);
-      logInfo("join_game", { roomId, playerId: socket.id, playerName: player.name });
+      appendLog(game, `${playerDisplayName(player)} joined ${roomId}.`);
+      logInfo("join_game", { roomId, playerId: socket.id, playerName: player.name, displayName: player.displayName });
       startGameIfReady(game);
       scheduleTurnTimer(io, game);
       broadcastGame(io, roomId);
+    });
+
+    socket.on("set_display_name", ({ displayName } = {}) => {
+      const game = getSocketGame(socket);
+      if (!game) {
+        emitInvalid(socket, "Join a game before changing display name.");
+        return;
+      }
+
+      withGameLock(io, game, socket, "set_display_name", () => {
+        if (socket.data.role === "viewer") {
+          const viewer = game.viewers?.find((item) => item.id === socket.id);
+          if (!viewer) {
+            emitInvalid(socket, "Join a game before changing display name.");
+            return;
+          }
+
+          const previousName = viewer.name;
+          viewer.name = sanitizeViewerName(displayName || "Viewer");
+          appendLog(game, `${previousName} changed display name to ${viewer.name}.`);
+          return;
+        }
+
+        const previous = game.players.find((item) => item.id === socket.id);
+        const updated = updatePlayerDisplayName(game, socket.id, displayName);
+        if (!updated || !previous) {
+          emitInvalid(socket, "Join the game before changing display name.");
+          return;
+        }
+
+        appendLog(game, `${previous.name} is now ${updated.displayName}.`);
+        logInfo("set_display_name", {
+          roomId: game.id,
+          playerId: socket.id,
+          internalName: updated.name,
+          displayName: updated.displayName,
+        });
+      });
+    });
+
+    socket.on("update_game_settings", ({ settings } = {}) => {
+      const game = getSocketGame(socket);
+      if (!game) {
+        emitInvalid(socket, "Join a game before changing game settings.");
+        return;
+      }
+
+      withGameLock(io, game, socket, "update_game_settings", () => {
+        const nextSettings = normalizeGameSettings(settings, game.settings || defaultGameSettings());
+        const currentSettings = game.settings || defaultGameSettings();
+
+        const didChange =
+          currentSettings.turnTimeoutSeconds !== nextSettings.turnTimeoutSeconds ||
+          currentSettings.maxCardsToLose !== nextSettings.maxCardsToLose ||
+          currentSettings.autoFoldBehavior !== nextSettings.autoFoldBehavior;
+
+        if (!didChange) {
+          return;
+        }
+
+        game.settings = nextSettings;
+        resetGameState(io, game);
+        clearGameTimer(game.id);
+        scheduleTurnTimer(io, game);
+
+        appendLog(
+          game,
+          `Game settings updated: timeout ${nextSettings.turnTimeoutSeconds}s, max cards ${nextSettings.maxCardsToLose}. Game reset.`
+        );
+        logInfo("update_game_settings", {
+          roomId: game.id,
+          playerId: socket.id,
+          settings: nextSettings,
+        });
+      });
     });
 
     socket.on("place_bid", ({ hand } = {}) => {
@@ -110,7 +197,7 @@ function registerSocketHandlers(io) {
           }
 
           game.currentBid = normalized;
-          appendLog(game, `${player.name} bid ${formatForLog(normalized)}.`);
+          appendLog(game, `${playerDisplayName(player)} bid ${formatForLog(normalized)}.`);
           logInfo("place_bid", { roomId: game.id, playerId: socket.id, bid: normalized });
 
           advanceTurn(game);
@@ -199,14 +286,14 @@ function registerSocketHandlers(io) {
 
         if (DISCONNECT_MODE === "remove") {
           removePlayer(game, socket.id);
-          appendLog(game, `${player.name} disconnected and was removed.`);
+          appendLog(game, `${playerDisplayName(player)} disconnected and was removed.`);
         } else if (DISCONNECT_MODE === "pause") {
           markPlayerInactive(game, socket.id);
-          pauseGame(game, `${player.name} disconnected. Game paused.`);
-          appendLog(game, `${player.name} disconnected. Game paused.`);
+          pauseGame(game, `${playerDisplayName(player)} disconnected. Game paused.`);
+          appendLog(game, `${playerDisplayName(player)} disconnected. Game paused.`);
         } else {
           markPlayerInactive(game, socket.id);
-          appendLog(game, `${player.name} disconnected and auto-folded.`);
+          appendLog(game, `${playerDisplayName(player)} disconnected and auto-folded.`);
         }
 
         logInfo("disconnect", {
@@ -275,7 +362,7 @@ function emitInvalid(socket, message) {
   const game = getSocketGame(socket);
   if (game) {
     const player = game.players.find((item) => item.id === socket.id);
-    appendLog(game, `Invalid action by ${player?.name || socket.id}: ${message}`);
+    appendLog(game, `Invalid action by ${player ? playerDisplayName(player) : socket.id}: ${message}`);
     logWarn("invalid_move", {
       roomId: game.id,
       playerId: socket.id,
@@ -312,7 +399,9 @@ function scheduleTurnTimer(io, game) {
     return;
   }
 
-  game.turnDeadlineMs = Date.now() + TURN_TIMEOUT_MS;
+  const timeoutMs = Number(game.settings?.turnTimeoutSeconds || DEFAULT_TURN_TIMEOUT_SECONDS) * 1000;
+
+  game.turnDeadlineMs = Date.now() + timeoutMs;
   const timerId = setTimeout(() => {
     const sameGame = games.get(game.id);
     if (!sameGame || sameGame.gameState !== "in_progress") {
@@ -337,7 +426,7 @@ function scheduleTurnTimer(io, game) {
           resolveLiarCall(io, sameGame, timedOutPlayer, previous, true);
         }
       } else {
-        appendLog(sameGame, `${timedOutPlayer.name} timed out. Auto-pass applied.`);
+        appendLog(sameGame, `${playerDisplayName(timedOutPlayer)} timed out. Auto-pass applied.`);
         advanceTurn(sameGame);
       }
 
@@ -352,7 +441,7 @@ function scheduleTurnTimer(io, game) {
       sameGame.processingAction = false;
       broadcastGame(io, sameGame.id);
     }
-  }, TURN_TIMEOUT_MS);
+  }, timeoutMs);
 
   timers.set(game.id, timerId);
 }
@@ -367,7 +456,7 @@ function clearGameTimer(gameId) {
 
 function getOrCreateGame(gameId) {
   if (!games.has(gameId)) {
-    games.set(gameId, createGame(gameId));
+    games.set(gameId, createGame(gameId, defaultGameSettings()));
   }
   const game = games.get(gameId);
   if (!Array.isArray(game.viewers)) {
@@ -399,6 +488,7 @@ function serializeGame(state, socketId, role = "viewer") {
     players: state.players.map((player) => ({
       id: player.id,
       name: player.name,
+      displayName: player.displayName || player.name,
       active: player.active,
       cardCount: Array.isArray(player.cards) ? player.cards.length : Number(player.cardTarget || 0),
     })),
@@ -415,6 +505,7 @@ function serializeGame(state, socketId, role = "viewer") {
     roundNumber: Number(state.roundNumber || 0),
     pausedReason: state.pausedReason,
     turnDeadlineMs: state.turnDeadlineMs,
+    settings: normalizeGameSettings(state.settings, defaultGameSettings()),
   };
 }
 
@@ -475,11 +566,16 @@ function promoteViewers(io, game) {
       break;
     }
 
-    const player = addOrReconnectPlayer(game, { id: nextViewer.id, name: label, cardTarget: 3 });
+    const player = addOrReconnectPlayer(game, {
+      id: nextViewer.id,
+      name: label,
+      displayName: nextViewer.name || label,
+      cardTarget: 3,
+    });
     player.cardTarget = 3;
     viewerSocket.data.role = "player";
     viewerSocket.emit("role_update", { role: "player", reason: "slot_opened" });
-    appendLog(game, `${player.name} moved from viewer to player.`);
+    appendLog(game, `${playerDisplayName(player)} moved from viewer to player.`);
     promoted += 1;
   }
 
@@ -499,13 +595,13 @@ function resolveLiarCall(io, game, caller, previous, isAuto = false) {
 
   const prefix = isAuto ? "Auto-called LIAR" : "called LIAR";
   const resolutionText = bidWasAchievable ? "Bid was possible" : "Bid was not possible";
-  const roundResultMessage = `${caller.name} ${prefix} on ${previous.name}. ${resolutionText}. ${loser.name} loses the round.`;
+  const roundResultMessage = `${playerDisplayName(caller)} ${prefix} on ${playerDisplayName(previous)}. ${resolutionText}. ${playerDisplayName(loser)} loses the round.`;
 
   game.roundResult = {
     id: `${Date.now()}-${Math.random()}`,
     message: roundResultMessage,
     loserId: loser.id,
-    loserName: loser.name,
+    loserName: playerDisplayName(loser),
     bidWasAchievable,
     showUntilMs: Date.now() + 5000,
   };
@@ -516,11 +612,12 @@ function resolveLiarCall(io, game, caller, previous, isAuto = false) {
   );
 
   loser.cardTarget = Number(loser.cardTarget || 3) + 1;
-  if (loser.cardTarget >= 6) {
+  const maxCardsToLose = Number(game.settings?.maxCardsToLose || DEFAULT_MAX_CARDS_TO_LOSE);
+  if (loser.cardTarget >= maxCardsToLose) {
     loser.cardTarget = 3;
-    appendLog(game, `${loser.name} reached the 6th card and resets to 3 cards.`);
+    appendLog(game, `${loser.displayName || loser.name} reached the ${maxCardsToLose}th card and resets to 3 cards.`);
   } else {
-    appendLog(game, `${loser.name} now has ${loser.cardTarget} cards for the next round.`);
+    appendLog(game, `${loser.displayName || loser.name} now has ${loser.cardTarget} cards for the next round.`);
   }
 
   logInfo("call_liar", {
@@ -579,6 +676,39 @@ function nextPlayerLabel(game) {
 function sanitizeViewerName(name) {
   const safe = String(name || "Viewer").trim();
   return safe.length ? safe.slice(0, 24) : "Viewer";
+}
+
+function playerDisplayName(player) {
+  return player?.displayName || player?.name || "Player";
+}
+
+function defaultGameSettings() {
+  return normalizeGameSettings(
+    {
+      turnTimeoutSeconds: DEFAULT_TURN_TIMEOUT_SECONDS,
+      maxCardsToLose: DEFAULT_MAX_CARDS_TO_LOSE,
+      autoFoldBehavior: DEFAULT_AUTO_FOLD_BEHAVIOR,
+    },
+    DEFAULT_GAME_SETTINGS
+  );
+}
+
+function clampInt(value, min, max, fallback, step = 1) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    return fallback;
+  }
+
+  let next = Math.round(numeric);
+  next = Math.max(min, Math.min(max, next));
+
+  if (step > 1) {
+    const offset = next - min;
+    next = min + Math.round(offset / step) * step;
+    next = Math.max(min, Math.min(max, next));
+  }
+
+  return next;
 }
 
 function formatForLog(hand) {

@@ -12,6 +12,11 @@ export function useGameSocket(playerName) {
     myCardTarget: 0,
     roundResult: null,
     log: [],
+    settings: {
+      turnTimeoutSeconds: 60,
+      maxCardsToLose: 6,
+      autoFoldBehavior: "none",
+    },
   });
   const [connected, setConnected] = useState(false);
   const [error, setError] = useState("");
@@ -79,6 +84,18 @@ export function useGameSocket(playerName) {
           return;
         }
         socket.emit("reset_game");
+      },
+      setDisplayName(displayName) {
+        if (!socket) {
+          return;
+        }
+        socket.emit("set_display_name", { displayName });
+      },
+      updateGameSettings(settings) {
+        if (!socket) {
+          return;
+        }
+        socket.emit("update_game_settings", { settings });
       },
       clearError() {
         setError("");

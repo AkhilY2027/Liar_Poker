@@ -10,7 +10,9 @@ function GameTable({ players, currentTurn, myPlayerId }) {
             key={player.id}
             className={player.id === currentTurn ? "row current" : "row"}
           >
-            <span className={player.id === myPlayerId ? "playerName self" : "playerName"}>{player.name}</span>
+            <span className={player.id === myPlayerId ? "playerName self" : "playerName"}>
+              {player.displayName || player.name}
+            </span>
             <span className="status">
               {player.id === currentTurn ? "Currently bidding" : "Waiting"}
             </span>

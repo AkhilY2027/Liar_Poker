@@ -3,11 +3,6 @@
 - Perhaps convert it to C/C++
 - https://render.com/docs/web-services
 
-9. Options:
-- Should allow game to edit the limit each player's hands can go to (So 6 is default limit, up until 8)
-- Also edit number of players that can play (Also up to 8)
-- Time-out (Up till 60s or none)
-
 10. Victory Screen:
 - Reveal all hands
 - Highlight cards that make up the current bid/if they fail
@@ -19,6 +14,7 @@ Bugs:
 	Either need to attribute properly or redesign "auto-fold" system
 		Potential Solution: Go to next highest hand
 		Potential Solution: Go to a "standby" role where they act as a viewer but their hand/cards is in play?
+- If we have more cards than 6, then when current player's turn, shrinked view of board will not display the many face-down cards of other players properly
 
 
 
@@ -32,3 +28,7 @@ Completed:
 5. When a player's hand becomes 6 cards, player is "out" from the game
 7. Horrendous UI – Redesign
 Bug: If another player joins while game is in session, they need to become a visitor
+9. Options:
+- Should allow game to edit the limit each player's hands can go to (So 6 is default limit, up until 8)
+- Also edit number of players that can play (Also up to 8)
+- Time-out (Up till 60s or none)
