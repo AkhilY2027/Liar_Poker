@@ -3,11 +3,6 @@
 - Perhaps convert it to C/C++
 - https://render.com/docs/web-services
 
-10. Victory Screen:
-- Reveal all hands
-- Highlight cards that make up the current bid/if they fail
-- Say victor and loser
-
 Bugs:
 - "Folding" – If a player auto-folds to another player, that player is now treated as owner as current bid
 	Basically, if we auto-fold for a long time, then current bid is just attributed to previous player regardless of if they actually made that bid
@@ -15,8 +10,7 @@ Bugs:
 		Potential Solution: Go to next highest hand
 		Potential Solution: Go to a "standby" role where they act as a viewer but their hand/cards is in play?
 - If we have more cards than 6, then when current player's turn, shrinked view of board will not display the many face-down cards of other players properly
-
-
+- Make the borders on victory screen more legible
 
 Completed:
 8. Should have a limit of 8 players
@@ -32,3 +26,7 @@ Bug: If another player joins while game is in session, they need to become a vis
 - Should allow game to edit the limit each player's hands can go to (So 6 is default limit, up until 8)
 - Also edit number of players that can play (Also up to 8)
 - Time-out (Up till 60s or none)
+10. Victory Screen:
+- Reveal all hands
+- Highlight cards that make up the current bid/if they fail
+- Say victor and loser

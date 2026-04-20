@@ -7,8 +7,10 @@ import GameTable from "./components/GameTable";
 import MyHand from "./components/MyHand";
 import PlayerSettingsPanel from "./components/PlayerSettingsPanel";
 import RoundResultPopup from "./components/RoundResultPopup";
-import { formatHand } from "./handUtils";
+import { cardImageName, cardLabel, formatHand } from "./handUtils";
 import { useGameSocket } from "./hooks/useGameSocket";
+
+const SERVER_URL = import.meta.env.VITE_SERVER_URL || "http://localhost:3000";
 
 function App() {
   const [playerName] = useState(() => `Player-${Math.floor(Math.random() * 900 + 100)}`);
@@ -73,6 +75,25 @@ function App() {
     }
     return roleLabel === "viewer" ? "Viewer" : "";
   }, [myPlayer?.displayName, myPlayer?.name, roleLabel]);
+
+  const isRevealPhase = game.gameState === "reveal";
+  const winnerId = game?.roundResult?.winnerId || null;
+  const loserId = game?.roundResult?.loserId || null;
+  const winningCardKeys = useMemo(() => new Set(game?.roundResult?.winningCardKeys || []), [game?.roundResult?.winningCardKeys]);
+
+  function seatClassName(playerId) {
+    const classes = ["seatRow"];
+    if (!isRevealPhase && playerId === game.currentTurn) {
+      classes.push("current");
+    }
+    if (isRevealPhase && playerId === winnerId) {
+      classes.push("winner");
+    }
+    if (isRevealPhase && playerId === loserId) {
+      classes.push("loser");
+    }
+    return classes.join(" ");
+  }
 
   useEffect(() => {
     const id = setInterval(() => setNowMs(Date.now()), 200);
@@ -180,12 +201,22 @@ function App() {
                 <div className="seatColumn leftColumn">
                   {leftSeats.map((player, index) =>
                     player ? (
-                      <div className={`seatRow ${player.id === game.currentTurn ? "current" : ""}`} key={player.id}>
+                      <div className={seatClassName(player.id)} key={player.id}>
                         <div className="seatName">{player.id === socketId ? "YOU" : player.displayName || player.name}</div>
                         <div className="seatCards">
-                          {Array.from({ length: Math.max(0, player.cardCount || 0) }).map((_, i) => (
-                            <span key={`${player.id}-${i}`} />
-                          ))}
+                          {isRevealPhase && Array.isArray(player.revealedCards) && player.revealedCards.length
+                            ? player.revealedCards.map((card, i) => {
+                                const cardKey = `${card.rank}-${card.suit}`;
+                                const isWinningCard = winningCardKeys.has(cardKey);
+                                return (
+                                  <span className={isWinningCard ? "seatCard reveal winningBid" : "seatCard reveal"} key={`${player.id}-${cardKey}-${i}`}>
+                                    <img src={`${SERVER_URL}/card_deck_images/${cardImageName(card)}`} alt={cardLabel(card)} />
+                                  </span>
+                                );
+                              })
+                            : Array.from({ length: Math.max(0, player.cardCount || 0) }).map((_, i) => (
+                                <span className="seatCard" key={`${player.id}-${i}`} />
+                              ))}
                         </div>
                       </div>
                     ) : (
@@ -220,12 +251,22 @@ function App() {
                 <div className="seatColumn rightColumn">
                   {rightSeats.map((player, index) =>
                     player ? (
-                      <div className={`seatRow ${player.id === game.currentTurn ? "current" : ""}`} key={player.id}>
+                      <div className={seatClassName(player.id)} key={player.id}>
                         <div className="seatName">{player.id === socketId ? "YOU" : player.displayName || player.name}</div>
                         <div className="seatCards">
-                          {Array.from({ length: Math.max(0, player.cardCount || 0) }).map((_, i) => (
-                            <span key={`${player.id}-${i}`} />
-                          ))}
+                          {isRevealPhase && Array.isArray(player.revealedCards) && player.revealedCards.length
+                            ? player.revealedCards.map((card, i) => {
+                                const cardKey = `${card.rank}-${card.suit}`;
+                                const isWinningCard = winningCardKeys.has(cardKey);
+                                return (
+                                  <span className={isWinningCard ? "seatCard reveal winningBid" : "seatCard reveal"} key={`${player.id}-${cardKey}-${i}`}>
+                                    <img src={`${SERVER_URL}/card_deck_images/${cardImageName(card)}`} alt={cardLabel(card)} />
+                                  </span>
+                                );
+                              })
+                            : Array.from({ length: Math.max(0, player.cardCount || 0) }).map((_, i) => (
+                                <span className="seatCard" key={`${player.id}-${i}`} />
+                              ))}
                         </div>
                       </div>
                     ) : (

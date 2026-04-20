@@ -17,12 +17,14 @@ const {
   normalizeHand,
   isValidBid,
   isBidAchievableFromActiveHands,
+  findBidHighlightCards,
 } = require("./gameLogic");
 
 const DEFAULT_ROOM_ID = "main-room";
 const DISCONNECT_MODE = String(process.env.DISCONNECT_MODE || "autofold").toLowerCase();
 const TIMEOUT_ACTION = String(process.env.TIMEOUT_ACTION || "pass").toLowerCase();
 const MAX_PLAYERS = 8;
+const REVEAL_DURATION_MS = 5000;
 
 const DEFAULT_TURN_TIMEOUT_SECONDS = clampInt(
   Math.round(Number(process.env.TURN_TIMEOUT_MS || 60000) / 1000),
@@ -36,6 +38,7 @@ const DEFAULT_AUTO_FOLD_BEHAVIOR = String(process.env.AUTO_FOLD_BEHAVIOR || DEFA
 
 const games = new Map();
 const timers = new Map();
+const revealTimers = new Map();
 
 games.set(DEFAULT_ROOM_ID, createGame(DEFAULT_ROOM_ID, defaultGameSettings()));
 
@@ -144,6 +147,7 @@ function registerSocketHandlers(io) {
         }
 
         game.settings = nextSettings;
+  clearRevealTimer(game.id);
         resetGameState(io, game);
         clearGameTimer(game.id);
         scheduleTurnTimer(io, game);
@@ -256,6 +260,7 @@ function registerSocketHandlers(io) {
       }
 
       withGameLock(io, game, socket, "reset_game", () => {
+        clearRevealTimer(game.id);
         resetGameState(io, game);
         clearGameTimer(game.id);
         scheduleTurnTimer(io, game);
@@ -307,6 +312,7 @@ function registerSocketHandlers(io) {
           const active = getActivePlayers(game);
           if (!active.length) {
             clearGameTimer(game.id);
+            clearRevealTimer(game.id);
             if (!game.viewers.length) {
               games.delete(game.id);
             } else {
@@ -454,6 +460,14 @@ function clearGameTimer(gameId) {
   }
 }
 
+function clearRevealTimer(gameId) {
+  const timer = revealTimers.get(gameId);
+  if (timer) {
+    clearTimeout(timer);
+    revealTimers.delete(gameId);
+  }
+}
+
 function getOrCreateGame(gameId) {
   if (!games.has(gameId)) {
     games.set(gameId, createGame(gameId, defaultGameSettings()));
@@ -491,6 +505,7 @@ function serializeGame(state, socketId, role = "viewer") {
       displayName: player.displayName || player.name,
       active: player.active,
       cardCount: Array.isArray(player.cards) ? player.cards.length : Number(player.cardTarget || 0),
+      revealedCards: state.gameState === "reveal" ? (player.cards || []) : [],
     })),
     currentTurn: state.currentTurn,
     currentBid: state.currentBid,
@@ -584,9 +599,14 @@ function promoteViewers(io, game) {
 
 function resolveLiarCall(io, game, caller, previous, isAuto = false) {
   game.gameState = "reveal";
+  game.currentTurn = null;
+  game.turnDeadlineMs = null;
+  clearGameTimer(game.id);
+  clearRevealTimer(game.id);
 
   const bidWasAchievable = isBidAchievableFromActiveHands(game, game.currentBid);
   const loser = bidWasAchievable ? caller : previous;
+  const winner = bidWasAchievable ? previous : caller;
   if (!loser) {
     appendLog(game, "Liar call could not be resolved. Round reset.");
     resetRoundAndRefill(io, game);
@@ -596,13 +616,17 @@ function resolveLiarCall(io, game, caller, previous, isAuto = false) {
   const prefix = isAuto ? "Auto-called LIAR" : "called LIAR";
   const resolutionText = bidWasAchievable ? "Bid was possible" : "Bid was not possible";
   const roundResultMessage = `${playerDisplayName(caller)} ${prefix} on ${playerDisplayName(previous)}. ${resolutionText}. ${playerDisplayName(loser)} loses the round.`;
+  const winningCardKeys = bidWasAchievable ? findBidHighlightCards(game, game.currentBid) : [];
 
   game.roundResult = {
     id: `${Date.now()}-${Math.random()}`,
     message: roundResultMessage,
+    winnerId: winner?.id || null,
+    winnerName: winner ? playerDisplayName(winner) : null,
     loserId: loser.id,
     loserName: playerDisplayName(loser),
     bidWasAchievable,
+    winningCardKeys,
     showUntilMs: Date.now() + 5000,
   };
 
@@ -610,15 +634,6 @@ function resolveLiarCall(io, game, caller, previous, isAuto = false) {
     game,
     roundResultMessage
   );
-
-  loser.cardTarget = Number(loser.cardTarget || 3) + 1;
-  const maxCardsToLose = Number(game.settings?.maxCardsToLose || DEFAULT_MAX_CARDS_TO_LOSE);
-  if (loser.cardTarget >= maxCardsToLose) {
-    loser.cardTarget = 3;
-    appendLog(game, `${loser.displayName || loser.name} reached the ${maxCardsToLose}th card and resets to 3 cards.`);
-  } else {
-    appendLog(game, `${loser.displayName || loser.name} now has ${loser.cardTarget} cards for the next round.`);
-  }
 
   logInfo("call_liar", {
     roomId: game.id,
@@ -628,7 +643,42 @@ function resolveLiarCall(io, game, caller, previous, isAuto = false) {
     bidWasAchievable,
   });
 
+  const revealResultId = game.roundResult.id;
+  const revealTimerId = setTimeout(() => {
+    const sameGame = games.get(game.id);
+    if (!sameGame || !sameGame.roundResult) {
+      return;
+    }
+
+    if (sameGame.roundResult.id !== revealResultId) {
+      return;
+    }
+
+    finalizeRevealPhase(io, sameGame, loser.id);
+  }, REVEAL_DURATION_MS);
+
+  revealTimers.set(game.id, revealTimerId);
+}
+
+function finalizeRevealPhase(io, game, loserId) {
+  clearRevealTimer(game.id);
+
+  const loser = game.players.find((player) => player.id === loserId);
+  if (loser) {
+    loser.cardTarget = Number(loser.cardTarget || 3) + 1;
+    const maxCardsToLose = Number(game.settings?.maxCardsToLose || DEFAULT_MAX_CARDS_TO_LOSE);
+    if (loser.cardTarget >= maxCardsToLose) {
+      loser.cardTarget = 3;
+      appendLog(game, `${playerDisplayName(loser)} reached the ${maxCardsToLose}th card and resets to 3 cards.`);
+    } else {
+      appendLog(game, `${playerDisplayName(loser)} now has ${loser.cardTarget} cards for the next round.`);
+    }
+  }
+
+  game.roundResult = null;
   resetRoundAndRefill(io, game);
+  scheduleTurnTimer(io, game);
+  broadcastGame(io, game.id);
 }
 
 function addViewer(game, viewer) {

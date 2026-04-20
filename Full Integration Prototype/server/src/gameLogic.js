@@ -448,6 +448,92 @@ function isBidAchievableFromActiveHands(game, bid) {
   return false;
 }
 
+function findBidHighlightCards(game, bid) {
+  const activePlayers = getActivePlayers(game);
+  const cards = activePlayers.flatMap((player) => player.cards || []);
+  if (!cards.length) {
+    return [];
+  }
+
+  if (!isBidAchievableFromActiveHands(game, bid)) {
+    return [];
+  }
+
+  const rankToCards = new Map();
+  const suitToCards = new Map();
+  for (const card of cards) {
+    if (!rankToCards.has(card.rank)) {
+      rankToCards.set(card.rank, []);
+    }
+    rankToCards.get(card.rank).push(card);
+
+    if (!suitToCards.has(card.suit)) {
+      suitToCards.set(card.suit, []);
+    }
+    suitToCards.get(card.suit).push(card);
+  }
+
+  const [a, b] = bid.primaryRanks;
+  const selected = [];
+
+  if (bid.type === "HIGH_CARD") {
+    const bucket = rankToCards.get(a) || [];
+    if (bucket.length) {
+      selected.push(bucket[0]);
+    }
+  } else if (bid.type === "PAIR") {
+    const bucket = rankToCards.get(a) || [];
+    selected.push(...bucket.slice(0, 2));
+  } else if (bid.type === "THREE_OF_A_KIND") {
+    const bucket = rankToCards.get(a) || [];
+    selected.push(...bucket.slice(0, 3));
+  } else if (bid.type === "TWO_PAIR") {
+    const left = rankToCards.get(a) || [];
+    const right = rankToCards.get(b) || [];
+    selected.push(...left.slice(0, 2), ...right.slice(0, 2));
+  } else if (bid.type === "FULL_HOUSE") {
+    const trips = rankToCards.get(a) || [];
+    const pair = rankToCards.get(b) || [];
+    selected.push(...trips.slice(0, 3), ...pair.slice(0, 2));
+  } else if (bid.type === "STRAIGHT") {
+    const needed = [a, a - 1, a - 2];
+    for (const rank of needed) {
+      const bucket = rankToCards.get(rank) || [];
+      if (bucket.length) {
+        selected.push(bucket[0]);
+      }
+    }
+  } else if (bid.type === "FLUSH") {
+    const suited = suitToCards.get(bid.suit) || [];
+    const chosen = [];
+    for (const rank of bid.primaryRanks) {
+      const match = suited.find((card) => card.rank === rank && !chosen.includes(card));
+      if (match) {
+        chosen.push(match);
+      }
+    }
+    selected.push(...chosen);
+  } else if (bid.type === "STRAIGHT_FLUSH") {
+    const suited = suitToCards.get(bid.suit) || [];
+    const needed = [a, a - 1, a - 2];
+    for (const rank of needed) {
+      const match = suited.find((card) => card.rank === rank);
+      if (match) {
+        selected.push(match);
+      }
+    }
+  }
+
+  return selected.map(cardKey);
+}
+
+function cardKey(card) {
+  if (!card) {
+    return "";
+  }
+  return `${card.rank}-${card.suit}`;
+}
+
 function hasStraight(ranks, highRank) {
   const needed = [highRank, highRank - 1, highRank - 2];
   if (needed.some((rank) => rank < 2)) {
@@ -478,4 +564,6 @@ module.exports = {
   compareHands,
   isValidBid,
   isBidAchievableFromActiveHands,
+  findBidHighlightCards,
+  cardKey,
 };
