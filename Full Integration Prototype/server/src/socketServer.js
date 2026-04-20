@@ -46,15 +46,19 @@ function registerSocketHandlers(io) {
       removeViewer(game, socket.id);
 
       const label = nextPlayerLabel(game);
-      const atCapacity = getActivePlayers(game).length >= MAX_PLAYERS || !label;
+      const gameUnderway = game.gameState === "in_progress" || game.gameState === "reveal";
+      const atCapacity = getActivePlayers(game).length >= MAX_PLAYERS || !label || gameUnderway;
 
       if (atCapacity) {
         addViewer(game, { id: socket.id, name });
         socket.data.role = "viewer";
 
-        appendLog(game, `${sanitizeViewerName(name)} joined ${roomId} as viewer (table full).`);
+        appendLog(
+          game,
+          `${sanitizeViewerName(name)} joined ${roomId} as viewer (${gameUnderway ? "game in progress" : "table full"}).`
+        );
         logInfo("join_game_viewer", { roomId, viewerId: socket.id });
-        socket.emit("role_update", { role: "viewer", reason: "table_full" });
+        socket.emit("role_update", { role: "viewer", reason: gameUnderway ? "game_in_progress" : "table_full" });
         broadcastGame(io, roomId);
         return;
       }
@@ -154,6 +158,22 @@ function registerSocketHandlers(io) {
 
         resolveLiarCall(io, game, player, previous);
         scheduleTurnTimer(io, game);
+      });
+    });
+
+    socket.on("reset_game", () => {
+      const game = getSocketGame(socket);
+      if (!game) {
+        emitInvalid(socket, "Join a game before resetting the game.");
+        return;
+      }
+
+      withGameLock(io, game, socket, "reset_game", () => {
+        resetGameState(io, game);
+        clearGameTimer(game.id);
+        scheduleTurnTimer(io, game);
+        appendLog(game, "Game reset.");
+        logInfo("reset_game", { roomId: game.id, playerId: socket.id });
       });
     });
 
@@ -408,6 +428,25 @@ function resetRoundAndRefill(io, game) {
       promoted === 1 ? "" : "s"
     }.`);
   }
+}
+
+function resetGameState(io, game) {
+  removeInactivePlayers(game);
+  promoteViewers(io, game);
+
+  game.players.forEach((player) => {
+    if (player.active) {
+      player.cardTarget = 3;
+    }
+  });
+
+  game.currentBid = null;
+  game.currentTurn = null;
+  game.reveal = null;
+  game.roundResult = null;
+  game.pausedReason = null;
+
+  resetRound(game);
 }
 
 function removeInactivePlayers(game) {

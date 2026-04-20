@@ -3,13 +3,13 @@ import { cardImageName, cardLabel } from "../handUtils";
 
 const SERVER_URL = import.meta.env.VITE_SERVER_URL || "http://localhost:3000";
 
-function MyHand({ role, cards, cardTarget }) {
+function MyHand({ role, cards }) {
   const title = "Your Hand";
 
   const handCards = useMemo(() => cards || [], [cards]);
 
   return (
-    <section className="card">
+    <section className="card handCardPanel">
       <h2>{title}</h2>
       {role !== "player" ? (
         <p className="muted">You are currently a viewer. You will receive cards when promoted to player.</p>

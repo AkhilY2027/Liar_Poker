@@ -19,7 +19,14 @@ function rankOptionsForType(type) {
   return RANKS;
 }
 
-function ActionPanel({ onPlaceBid, onCallLiar, currentBid, isMyTurn }) {
+function ActionPanel({
+  onPlaceBid,
+  onCallLiar,
+  currentBid,
+  isMyTurn,
+  submitLabel = "Place Bid",
+  showCallButton = true,
+}) {
   const [type, setType] = useState("");
   const [primaryRanks, setPrimaryRanks] = useState([2]);
   const [suit, setSuit] = useState("");
@@ -128,7 +135,7 @@ function ActionPanel({ onPlaceBid, onCallLiar, currentBid, isMyTurn }) {
     });
   }, [currentBid, primaryRanks, spec, suit, type]);
 
-  const submitLabel = type ? "Place Bid" : "Bid a hand";
+  const submitText = type ? submitLabel : "Bid a hand";
 
   function isRankOptionDisabled(index, value) {
     if (!type || !currentBid) {
@@ -239,11 +246,13 @@ function ActionPanel({ onPlaceBid, onCallLiar, currentBid, isMyTurn }) {
 
         <div className="buttonRow">
           <button type="submit" disabled={!isMyTurn || !draftBid || isLowerOrEqualBid}>
-            {submitLabel}
+            {submitText}
           </button>
-          <button type="button" className="danger" onClick={onCallLiar} disabled={!isMyTurn}>
-            Call Liar
-          </button>
+          {showCallButton ? (
+            <button type="button" className="danger" onClick={onCallLiar} disabled={!isMyTurn}>
+              Call Liar
+            </button>
+          ) : null}
         </div>
         {isLowerOrEqualBid ? <p className="error">Bid must be strictly higher than the current bid.</p> : null}
       </form>

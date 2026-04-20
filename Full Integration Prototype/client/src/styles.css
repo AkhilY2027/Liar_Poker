@@ -1,12 +1,17 @@
+@import url("https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=Rajdhani:wght@400;500;700&display=swap");
+
 :root {
-  --bg: #f4f7fb;
-  --panel: #ffffff;
-  --line: #d8dfeb;
-  --ink: #15243b;
-  --muted: #5f6f88;
-  --accent: #1e79dd;
-  --danger: #cc4036;
-  --ok: #157344;
+  --bg: #0f1518;
+  --felt-1: #0d4f37;
+  --felt-2: #0f6e49;
+  --felt-3: #093624;
+  --panel: #1a1f24;
+  --line: #2f3a44;
+  --ink: #e5ecf3;
+  --muted: #9fadb9;
+  --accent: #83d2ff;
+  --danger: #ef6a6a;
+  --ok: #7ae0a9;
 }
 
 * {
@@ -15,56 +20,415 @@
 
 body {
   margin: 0;
-  font-family: "Avenir Next", "Segoe UI", sans-serif;
-  background: linear-gradient(160deg, #e9f1ff 0%, var(--bg) 38%);
+  font-family: "Rajdhani", "Trebuchet MS", sans-serif;
+  background: radial-gradient(circle at 50% 10%, #1d4f3a 0%, var(--bg) 60%);
   color: var(--ink);
 }
 
-.layout {
-  max-width: 1100px;
-  margin: 0 auto;
-  padding: 1.2rem;
+.appRoot {
+  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
   display: grid;
-  gap: 1rem;
+  grid-template-rows: auto 1fr auto;
 }
 
-.banner {
-  border-radius: 12px;
-  color: #fff;
-  background: linear-gradient(120deg, #143664, #1e79dd);
-  padding: 0.9rem 1rem;
+.topbar {
+  background: #11151a;
+  border-bottom: 1px solid #20262d;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.9rem 1.1rem;
 }
 
-.banner h1,
-.banner p {
+.topbar h1 {
   margin: 0;
+  color: #8ec8ff;
+  font-family: "Orbitron", sans-serif;
+  font-size: 1.35rem;
+  letter-spacing: 0.08em;
 }
 
-.banner p {
-  margin-top: 0.35rem;
-  opacity: 0.9;
+.topbarActions {
+  display: flex;
+  gap: 0.55rem;
+  align-items: center;
 }
 
-.grid.two {
+.iconBtn,
+.avatarBtn {
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  border: 1px solid #3a4450;
+  background: #1f2730;
+  color: #cce5ff;
+  padding: 0;
+  font-weight: 700;
+}
+
+.avatarBtn {
+  width: auto;
+  min-width: 94px;
+  padding: 0 0.8rem;
+  white-space: nowrap;
+  border-radius: 14px;
+  background: #2c3f4f;
+}
+
+.tableStage {
+  padding: 0.8rem 0.8rem 0.4rem;
   display: grid;
   gap: 1rem;
+  height: 100%;
+  min-height: 0;
+}
+
+.playScene {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 0.78fr);
+  gap: 1rem;
+  height: 100%;
+  min-height: 0;
+}
+
+.tableStage.idleMode .playScene {
+  grid-template-columns: 1fr;
+}
+
+.tableStage.turnMode .playScene {
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 0.72fr);
+}
+
+.felt {
+  position: relative;
+  min-height: 0;
+  border-radius: 58px;
+  border: 1px solid rgba(93, 151, 122, 0.28);
+  background:
+    radial-gradient(circle at 25% 35%, rgba(80, 185, 134, 0.22), transparent 45%),
+    radial-gradient(circle at 70% 60%, rgba(70, 180, 128, 0.16), transparent 45%),
+    linear-gradient(140deg, var(--felt-1), var(--felt-2) 55%, var(--felt-3));
+  box-shadow: inset 0 0 110px rgba(4, 20, 13, 0.7);
+  overflow: hidden;
+  padding: 0.9rem;
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(360px, 1.2fr) minmax(180px, 1fr);
+  align-items: center;
+  gap: 0.75rem;
+  min-height: 0;
+}
+
+.seatColumn {
+  display: grid;
+  gap: 0.95rem;
+  align-content: center;
+  min-height: 0;
+}
+
+.leftColumn {
+  justify-items: center;
+  padding-left: 0;
+}
+
+.rightColumn {
+  justify-items: center;
+  padding-right: 0;
+}
+
+.centerColumn {
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  min-height: 0;
+  gap: 0.9rem;
+}
+
+.seatRow {
+  min-width: 132px;
+  text-align: center;
+}
+
+.seatName {
+  display: inline-block;
+  border-radius: 999px;
+  padding: 0.38rem 0.96rem;
+  background: rgba(45, 50, 60, 0.9);
+  border: 1px solid #5d6877;
+  font-weight: 700;
+  font-size: 0.92rem;
+}
+
+.seatRow.current {
+  border: 1px solid rgba(145, 208, 255, 0.85);
+  border-radius: 14px;
+  box-shadow: 0 0 0 2px rgba(122, 192, 255, 0.18), 0 0 22px rgba(122, 192, 255, 0.22);
+  padding: 0.35rem 0.4rem 0.45rem;
+}
+
+.seatRow.current .seatName {
+  border-color: #9ad6ff;
+  background: rgba(85, 127, 155, 0.65);
+  box-shadow: 0 0 14px rgba(145, 208, 255, 0.25);
+}
+
+.seatCards {
+  margin-top: 0.42rem;
+  display: flex;
+  justify-content: center;
+  gap: 0.24rem;
+}
+
+.seatCards span {
+  width: clamp(36px, 4.4vw, 48px);
+  height: clamp(56px, 6.8vw, 72px);
+  border-radius: 4px;
+  border: 1px solid #505965;
+  background: repeating-linear-gradient(135deg, #141b21, #141b21 6px, #27303a 6px, #27303a 12px);
+}
+
+.seatRow.empty {
+  border: 1px dashed rgba(157, 189, 172, 0.25);
+  border-radius: 10px;
+  padding: 0.85rem;
+  color: rgba(210, 231, 220, 0.36);
+  font-weight: 600;
+}
+
+.challengeCard {
+  width: min(440px, 100%);
+  height: 37.5vh;
+  border-radius: 16px;
+  border: 1px solid #304048;
+  background: linear-gradient(160deg, rgba(11, 21, 27, 0.95), rgba(7, 20, 26, 0.88));
+  text-align: center;
+  padding: 1.1rem 1.15rem;
+  display: grid;
+  align-content: center;
+}
+
+.challengeTitle {
+  margin: 0;
+  font-family: "Orbitron", sans-serif;
+  font-size: 0.85rem;
+  letter-spacing: 0.16em;
+  color: #b5cfd4;
+}
+
+.challengeValue {
+  margin: 0.55rem 0;
+  font-family: "Orbitron", sans-serif;
+  font-size: clamp(1.9rem, 4.8vw, 3.8rem);
+  color: #9ad8ff;
+}
+
+.challengeSub,
+.challengeTimer {
+  margin: 0;
+  color: #ccd8e2;
+  letter-spacing: 0.08em;
+  font-size: 1rem;
+}
+
+.challengeTimer {
+  margin-top: 0.35rem;
+  color: #8ef8ba;
+}
+
+.handArea {
+  position: static;
+  width: fit-content;
+  display: grid;
+  justify-items: center;
+}
+
+.handCardPanel {
+  width: fit-content;
+  min-width: min(100%, 420px);
+  height: 25vh;
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  background: transparent;
+  border: 0;
+  padding: 0 0.7rem;
+  overflow: hidden;
+}
+
+.handCardPanel h2 {
+  margin: 0 0 0.55rem;
+  font-family: "Orbitron", sans-serif;
+  font-size: clamp(1.05rem, 1.8vw, 1.5rem);
+  color: #dbf0fb;
+  text-align: center;
+}
+
+.handGrid {
+  display: flex;
+  justify-content: center;
+  gap: clamp(0.35rem, 0.6vw, 0.8rem);
+  flex-wrap: nowrap;
+}
+
+.playingCard {
+  width: clamp(70px, 6.1vw, 92px);
+  border: 1px solid #d6dde8;
+  border-radius: 8px;
+  background: #f3f7fb;
+  padding: 0.15rem;
+}
+
+.playingCard img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.betComposer {
+  height: 100%;
+  border: 1px dashed rgba(128, 183, 157, 0.42);
+  border-radius: 16px;
+  padding: 0.85rem;
+  background: rgba(8, 30, 21, 0.42);
+  overflow: hidden;
+}
+
+.turnComposer {
+  border: 1px solid rgba(81, 175, 141, 0.35);
+  border-radius: 18px;
+  background: linear-gradient(160deg, rgba(10, 28, 20, 0.9), rgba(6, 18, 13, 0.88));
+  padding: 1rem;
+  height: 100%;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  overflow: hidden;
+}
+
+.turnComposerHeader {
+  display: grid;
+  place-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.turnComposerHeader p {
+  margin: 0;
+  color: #8fd1ba;
+  letter-spacing: 0.18em;
+  font-family: "Orbitron", sans-serif;
+  font-size: 0.72rem;
+}
+
+.turnComposer .card {
+  height: 100%;
+  overflow: hidden;
+}
+
+.composerLabel {
+  margin: 0 0 0.6rem;
+  text-align: center;
+  letter-spacing: 0.18em;
+  font-family: "Orbitron", sans-serif;
+  font-size: 0.74rem;
+  color: #9cc3b0;
+}
+
+.betComposer .card {
+  background: rgba(15, 21, 26, 0.86);
+  border-color: #34404d;
+}
+
+.betComposer .buttonRow {
+  justify-content: flex-end;
+}
+
+.settingsShell {
+  min-height: calc(100vh - 72px);
+  height: calc(100vh - 72px);
+  display: grid;
+  grid-template-columns: 220px 1fr;
+}
+
+.settingsNav {
+  background: #0f1419;
+  border-right: 1px solid #202831;
+  padding: 1rem;
+  display: grid;
+  align-content: start;
+  gap: 0.55rem;
+}
+
+.settingsNavBtn {
+  text-align: left;
+  border: 1px solid #2a333c;
+  background: #131b23;
+  color: #cfdae4;
+  border-radius: 9px;
+  padding: 0.65rem 0.7rem;
+  font-family: "Rajdhani", sans-serif;
+  font-size: 1rem;
+}
+
+.settingsNavBtn.active {
+  border-color: #65a7d2;
+  background: linear-gradient(160deg, #113246, #1d4560);
+  color: #bfe5ff;
+}
+
+.settingsContent {
+  padding: 1rem;
+  overflow: hidden;
+}
+
+.settingsContent h2 {
+  margin: 0 0 0.85rem;
+  font-family: "Orbitron", sans-serif;
+}
+
+.settingsGrid {
+  display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.9rem;
+  max-height: calc(100vh - 150px);
+  overflow: hidden;
+}
+
+@media (min-width: 1500px) {
+  .felt {
+    grid-template-columns: minmax(220px, 1fr) minmax(420px, 1.25fr) minmax(220px, 1fr);
+  }
+
+  .seatColumn {
+    gap: 1.05rem;
+  }
+
+  .seatRow {
+    min-width: 152px;
+  }
+
+  .challengeCard {
+    width: min(520px, 100%);
+  }
+
+  .handCardPanel {
+    width: fit-content;
+    min-width: min(100%, 500px);
+  }
+
+  .playingCard {
+    width: clamp(76px, 5.7vw, 104px);
+  }
 }
 
 .card {
   border: 1px solid var(--line);
   border-radius: 12px;
-  background: var(--panel);
+  background: linear-gradient(155deg, #1a2127, #151b21);
   padding: 0.9rem;
 }
 
 .card h2 {
   margin-top: 0;
-}
-
-.headline {
-  font-size: 1.2rem;
-  margin-bottom: 0.3rem;
 }
 
 .list,
@@ -78,15 +442,15 @@ body {
 
 .row {
   padding: 0.55rem 0.65rem;
-  border: 1px solid var(--line);
+  border: 1px solid #384351;
   border-radius: 8px;
   display: flex;
   justify-content: space-between;
 }
 
 .row.current {
-  border-color: var(--accent);
-  background: #edf5ff;
+  border-color: #7eb6dd;
+  background: #243949;
 }
 
 .playerName.self {
@@ -110,7 +474,9 @@ button {
 
 select {
   width: 100%;
-  border: 1px solid var(--line);
+  border: 1px solid #3a4857;
+  background: #10171d;
+  color: #dce7f0;
   border-radius: 8px;
   padding: 0.45rem;
 }
@@ -125,23 +491,20 @@ button {
   border: 0;
   border-radius: 8px;
   padding: 0.5rem 0.7rem;
-  background: var(--accent);
-  color: white;
+  background: #4aa8df;
+  color: #0f1821;
   cursor: pointer;
-}
-
-button:disabled {
-  background: #97a3b8;
-  color: #eef2f7;
-  cursor: not-allowed;
+  font-weight: 700;
 }
 
 .ghost {
-  background: #64748b;
+  background: #617589;
+  color: #f3f8ff;
 }
 
 .danger {
-  background: var(--danger);
+  background: #d45555;
+  color: #fff;
 }
 
 .buttonRow {
@@ -155,42 +518,18 @@ button:disabled {
 
 .warn,
 .error {
-  color: var(--danger);
-}
-
-.handGrid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(86px, 1fr));
-  gap: 0.6rem;
-}
-
-.playingCard {
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: #f9fbff;
-  padding: 0.25rem;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
-.playingCard img {
-  display: block;
-  width: 100%;
-  height: auto;
-  max-height: 128px;
-  object-fit: contain;
+  color: #ff9f9f;
 }
 
 .roundResultPopup {
   position: fixed;
   left: 50%;
-  bottom: 24px;
+  top: 86px;
   transform: translateX(-50%);
-  width: min(720px, calc(100vw - 24px));
-  background: #0f1e34;
+  width: min(760px, calc(100vw - 24px));
+  background: rgba(12, 23, 31, 0.95);
   color: #f8fbff;
-  border: 1px solid #335178;
+  border: 1px solid #456175;
   border-radius: 12px;
   box-shadow: 0 12px 26px rgba(5, 10, 20, 0.35);
   padding: 0.85rem 1rem;
@@ -201,15 +540,40 @@ button:disabled {
   margin: 0;
   font-weight: 700;
   font-size: 0.94rem;
-  color: #b6d5ff;
+  color: #9ccfff;
 }
 
 .roundResultMessage {
   margin: 0.28rem 0 0;
 }
 
-@media (max-width: 840px) {
-  .grid.two {
+@media (max-width: 980px) {
+  .settingsShell {
     grid-template-columns: 1fr;
+    height: auto;
+  }
+
+  .settingsGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .felt {
+    grid-template-columns: 1fr;
+    gap: 0.9rem;
+  }
+
+  .challengeCard,
+  .handArea {
+    width: auto;
+  }
+
+  .playScene {
+    grid-template-columns: 1fr;
+  }
+
+  .challengeCard,
+  .handCardPanel {
+    width: 100%;
+    height: auto;
   }
 }

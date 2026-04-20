@@ -1,14 +1,12 @@
-
-7. Horrendous UI – Redesign
+11. LAN Play/Website
+- How do we want to play this across devices
+- Perhaps convert it to C/C++
+- https://render.com/docs/web-services
 
 9. Options:
 - Should allow game to edit the limit each player's hands can go to (So 6 is default limit, up until 8)
 - Also edit number of players that can play (Also up to 8)
 - Time-out (Up till 60s or none)
-
-11. LAN Play/Website
-- How do we want to play this across devices
-- Perhaps convert it to C/C++
 
 10. Victory Screen:
 - Reveal all hands
@@ -16,7 +14,6 @@
 - Say victor and loser
 
 Bugs:
-- If another player joins while game is in session, they need to become a visitor
 - "Folding" – If a player auto-folds to another player, that player is now treated as owner as current bid
 	Basically, if we auto-fold for a long time, then current bid is just attributed to previous player regardless of if they actually made that bid
 	Either need to attribute properly or redesign "auto-fold" system
@@ -33,3 +30,5 @@ Completed:
 3. Assign players scores based on whether they win or lose the liar
 4. This score should determine how high a player's hand becomes (With each loss, player's hand is added by 1 card)
 5. When a player's hand becomes 6 cards, player is "out" from the game
+7. Horrendous UI – Redesign
+Bug: If another player joins while game is in session, they need to become a visitor

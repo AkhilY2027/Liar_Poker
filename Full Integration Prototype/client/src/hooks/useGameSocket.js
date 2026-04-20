@@ -74,6 +74,12 @@ export function useGameSocket(playerName) {
         }
         socket.emit("call_liar");
       },
+      resetGame() {
+        if (!socket) {
+          return;
+        }
+        socket.emit("reset_game");
+      },
       clearError() {
         setError("");
       },
