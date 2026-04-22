@@ -1,15 +1,24 @@
 import React, { useState } from "react";
 
 const AUTO_FOLD_OPTIONS = [
-  { value: "none", label: "Option 1 (TBD)" },
-  { value: "blank_a", label: "Option 2 (TBD)" },
-  { value: "blank_b", label: "Option 3 (TBD)" },
+  {
+    value: "next_highest",
+    label: "Default: Auto-bid next highest (falls back to auto-fold at max)",
+  },
+  {
+    value: "kick_and_reset_round",
+    label: "Kick to viewer and reset round",
+  },
+  {
+    value: "auto_fold",
+    label: "Auto-fold (pass turn to next player)",
+  },
 ];
 
 function GameSettingsPanel({ settings, onUpdateSettings, onResetAllCards, disabled }) {
   const turnTimeoutSeconds = Number(settings?.turnTimeoutSeconds || 60);
   const maxCardsToLose = Number(settings?.maxCardsToLose || 6);
-  const autoFoldBehavior = String(settings?.autoFoldBehavior || "none");
+  const autoFoldBehavior = String(settings?.autoFoldBehavior || "next_highest");
   const [showResetConfirmation, setShowResetConfirmation] = useState(false);
 
   function update(partial) {
@@ -66,7 +75,7 @@ function GameSettingsPanel({ settings, onUpdateSettings, onResetAllCards, disabl
         </label>
 
         <label>
-          Auto-Fold Behavior
+          Timeout Behavior
           <select
             value={autoFoldBehavior}
             onChange={(event) =>

@@ -20,8 +20,10 @@ const SUIT_ORDER = Object.freeze({
 const DEFAULT_GAME_SETTINGS = Object.freeze({
   turnTimeoutSeconds: 60,
   maxCardsToLose: 6,
-  autoFoldBehavior: "none",
+  autoFoldBehavior: "next_highest",
 });
+
+const TIMEOUT_BEHAVIOR_VALUES = new Set(["next_highest", "kick_and_reset_round", "auto_fold"]);
 
 function createGame(id = "main-room", settings = null) {
   const normalizedSettings = normalizeGameSettings(settings, DEFAULT_GAME_SETTINGS);
@@ -30,6 +32,7 @@ function createGame(id = "main-room", settings = null) {
     players: [],
     currentTurn: null,
     currentBid: null,
+    currentBidBy: null,
     gameState: "waiting",
     log: [],
     reveal: null,
@@ -91,7 +94,12 @@ function normalizeGameSettings(settings, currentSettings = DEFAULT_GAME_SETTINGS
   const maxCardsToLose = clampInt(source.maxCardsToLose, 6, 8, Number(base.maxCardsToLose || 6));
 
   const rawAutoFold = typeof source.autoFoldBehavior === "string" ? source.autoFoldBehavior.trim() : "";
-  const autoFoldBehavior = rawAutoFold || String(base.autoFoldBehavior || "none");
+  const fallbackBehavior = String(base.autoFoldBehavior || DEFAULT_GAME_SETTINGS.autoFoldBehavior || "next_highest").trim().toLowerCase();
+  const normalizedFallback = TIMEOUT_BEHAVIOR_VALUES.has(fallbackBehavior) ? fallbackBehavior : "next_highest";
+  const normalizedRequested = rawAutoFold.trim().toLowerCase();
+  const autoFoldBehavior = TIMEOUT_BEHAVIOR_VALUES.has(normalizedRequested)
+    ? normalizedRequested
+    : (normalizedRequested === "none" ? "next_highest" : normalizedFallback);
 
   return {
     turnTimeoutSeconds,
@@ -122,6 +130,7 @@ function startGameIfReady(game) {
     game.gameState = "waiting";
     game.currentTurn = activePlayers[0]?.id || null;
     game.currentBid = null;
+    game.currentBidBy = null;
     game.pausedReason = null;
     return false;
   }
@@ -130,6 +139,7 @@ function startGameIfReady(game) {
     game.gameState = "in_progress";
     game.currentTurn = activePlayers[0].id;
     game.currentBid = null;
+    game.currentBidBy = null;
     game.reveal = null;
     game.pausedReason = null;
     dealRoundCards(game);
@@ -143,6 +153,7 @@ function resetRound(game) {
   const activePlayers = getActivePlayers(game);
   game.gameState = activePlayers.length >= 2 ? "in_progress" : "waiting";
   game.currentBid = null;
+  game.currentBidBy = null;
   game.currentTurn = activePlayers[0]?.id || null;
   game.reveal = null;
   game.pausedReason = null;

@@ -18,7 +18,7 @@ export function useGameSocket(playerName) {
     settings: {
       turnTimeoutSeconds: 60,
       maxCardsToLose: 6,
-      autoFoldBehavior: "none",
+      autoFoldBehavior: "next_highest",
     },
   });
   const [connected, setConnected] = useState(false);

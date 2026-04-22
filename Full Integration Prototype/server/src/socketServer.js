@@ -15,6 +15,7 @@ const {
   advanceTurn,
   getPreviousPlayer,
   normalizeHand,
+  compareHands,
   isValidBid,
   isBidAchievableFromActiveHands,
   findBidHighlightCards,
@@ -23,9 +24,14 @@ const { events: EVENT, errorCodes: ERROR_CODE } = require("../../shared/socketPr
 
 const DEFAULT_ROOM_ID = "main-room";
 const DISCONNECT_MODE = String(process.env.DISCONNECT_MODE || "autofold").toLowerCase();
-const TIMEOUT_ACTION = String(process.env.TIMEOUT_ACTION || "pass").toLowerCase();
 const MAX_PLAYERS = 8;
 const REVEAL_DURATION_MS = 5000;
+
+const TIMEOUT_BEHAVIOR = Object.freeze({
+  NEXT_HIGHEST: "next_highest",
+  KICK_AND_RESET_ROUND: "kick_and_reset_round",
+  AUTO_FOLD: "auto_fold",
+});
 
 const DEFAULT_TURN_TIMEOUT_SECONDS = clampInt(
   Math.round(Number(process.env.TURN_TIMEOUT_MS || 60000) / 1000),
@@ -35,11 +41,14 @@ const DEFAULT_TURN_TIMEOUT_SECONDS = clampInt(
   5
 );
 const DEFAULT_MAX_CARDS_TO_LOSE = clampInt(Number(process.env.MAX_CARDS_TO_LOSE || 6), 6, 8, 6);
-const DEFAULT_AUTO_FOLD_BEHAVIOR = String(process.env.AUTO_FOLD_BEHAVIOR || DEFAULT_GAME_SETTINGS.autoFoldBehavior || "none");
+const DEFAULT_AUTO_FOLD_BEHAVIOR = normalizeTimeoutBehavior(
+  process.env.AUTO_FOLD_BEHAVIOR || process.env.TIMEOUT_ACTION || DEFAULT_GAME_SETTINGS.autoFoldBehavior
+);
 
 const games = new Map();
 const timers = new Map();
 const revealTimers = new Map();
+const BID_LADDER = buildBidLadder();
 
 games.set(DEFAULT_ROOM_ID, createGame(DEFAULT_ROOM_ID, defaultGameSettings()));
 
@@ -204,6 +213,7 @@ function registerSocketHandlers(io) {
           }
 
           game.currentBid = normalized;
+          game.currentBidBy = socket.id;
           appendLog(game, `${playerDisplayName(player)} bid ${formatForLog(normalized)}.`);
           logInfo("place_bid", { roomId: game.id, playerId: socket.id, bid: normalized });
 
@@ -244,13 +254,13 @@ function registerSocketHandlers(io) {
           return;
         }
 
-        const previous = getPreviousPlayer(game);
-        if (!previous || !game.currentBid) {
+        const challenged = game.players.find((item) => item.id === game.currentBidBy) || getPreviousPlayer(game);
+        if (!challenged || !game.currentBid) {
           emitInvalid(socket, "No bid is available to challenge.", ERROR_CODE.noBidToChallenge);
           return;
         }
 
-        resolveLiarCall(io, game, player, previous);
+        resolveLiarCall(io, game, player, challenged);
         scheduleTurnTimer(io, game);
       });
     });
@@ -269,23 +279,6 @@ function registerSocketHandlers(io) {
         scheduleTurnTimer(io, game);
         appendLog(game, "Round reset.");
         logInfo("reset_game", { roomId: game.id, playerId: socket.id });
-      });
-    });
-
-    socket.on(EVENT.resetAllCards, () => {
-      const game = getSocketGame(socket);
-      if (!game) {
-        emitInvalid(socket, "Join a game before resetting all cards.", ERROR_CODE.notInGame);
-        return;
-      }
-
-      withGameLock(io, game, socket, "reset_all_cards", () => {
-        clearRevealTimer(game.id);
-        resetGameState(io, game);
-        clearGameTimer(game.id);
-        scheduleTurnTimer(io, game);
-        appendLog(game, "Game reset. All players reset to 3 cards.");
-        logInfo("reset_all_cards", { roomId: game.id, playerId: socket.id });
       });
     });
 
@@ -356,6 +349,7 @@ function registerSocketHandlers(io) {
               game.gameState = "waiting";
               game.currentTurn = null;
               game.currentBid = null;
+              game.currentBidBy = null;
               game.pausedReason = null;
             }
             return;
@@ -463,20 +457,13 @@ function scheduleTurnTimer(io, game) {
         return;
       }
 
-      if (TIMEOUT_ACTION === "liar" && sameGame.currentBid) {
-        const previous = getPreviousPlayer(sameGame);
-        if (previous) {
-          resolveLiarCall(io, sameGame, timedOutPlayer, previous, true);
-        }
-      } else {
-        appendLog(sameGame, `${playerDisplayName(timedOutPlayer)} timed out. Auto-pass applied.`);
-        advanceTurn(sameGame);
-      }
+      const timeoutBehavior = resolveTimeoutBehavior(sameGame);
+      applyTimeoutBehavior(io, sameGame, timedOutPlayer, timeoutBehavior);
 
       logInfo("turn_timeout", {
         roomId: sameGame.id,
         playerId: timedOutPlayer.id,
-        timeoutAction: TIMEOUT_ACTION,
+        timeoutBehavior,
       });
 
       scheduleTurnTimer(io, sameGame);
@@ -561,9 +548,14 @@ function serializeGame(state, socketId, role = "viewer") {
   };
 }
 
-function resetRoundAndRefill(io, game) {
+function resetRoundAndRefill(io, game, options = {}) {
+  let promoted = 0;
   removeInactivePlayers(game);
-  const promoted = promoteViewers(io, game);
+
+  if (options.promoteViewers !== false) {
+    promoted = promoteViewers(io, game);
+  }
+
   resetRound(game);
 
   if (promoted > 0) {
@@ -571,6 +563,111 @@ function resetRoundAndRefill(io, game) {
       promoted === 1 ? "" : "s"
     }.`);
   }
+}
+
+function applyTimeoutBehavior(io, game, timedOutPlayer, timeoutBehavior) {
+  if (timeoutBehavior === TIMEOUT_BEHAVIOR.KICK_AND_RESET_ROUND) {
+    markPlayerInactive(game, timedOutPlayer.id);
+    addViewer(game, { id: timedOutPlayer.id, name: playerDisplayName(timedOutPlayer) });
+
+    const playerSocket = io.sockets.sockets.get(timedOutPlayer.id);
+    if (playerSocket) {
+      playerSocket.data.role = "viewer";
+      playerSocket.emit(EVENT.roleUpdate, { role: "viewer", reason: "timeout_kick" });
+    }
+
+    appendLog(game, `${playerDisplayName(timedOutPlayer)} timed out and was moved to viewer. Round reset.`);
+    resetRoundAndRefill(io, game, { promoteViewers: false });
+    return;
+  }
+
+  if (timeoutBehavior === TIMEOUT_BEHAVIOR.NEXT_HIGHEST) {
+    const nextBid = getNextHigherBid(game.currentBid);
+    if (nextBid) {
+      game.currentBid = nextBid;
+      game.currentBidBy = timedOutPlayer.id;
+      appendLog(game, `${playerDisplayName(timedOutPlayer)} timed out. Auto-bid applied: ${formatForLog(nextBid)}.`);
+      advanceTurn(game);
+      return;
+    }
+
+    const challenged = game.players.find((player) => player.id === game.currentBidBy) || getPreviousPlayer(game);
+    if (game.currentBid && challenged) {
+      appendLog(game, `${playerDisplayName(timedOutPlayer)} timed out at the highest bid. Auto-called LIAR.`);
+      resolveLiarCall(io, game, timedOutPlayer, challenged, true);
+      return;
+    }
+
+    appendLog(game, `${playerDisplayName(timedOutPlayer)} timed out with no active bid. Auto-fold applied.`);
+    advanceTurn(game);
+    return;
+  }
+
+  appendLog(game, `${playerDisplayName(timedOutPlayer)} timed out. Auto-fold applied.`);
+  advanceTurn(game);
+}
+
+function resolveTimeoutBehavior(game) {
+  return normalizeTimeoutBehavior(game.settings?.autoFoldBehavior || DEFAULT_AUTO_FOLD_BEHAVIOR);
+}
+
+function normalizeTimeoutBehavior(value) {
+  const normalized = String(value || "").trim().toLowerCase();
+  if (normalized === TIMEOUT_BEHAVIOR.NEXT_HIGHEST) {
+    return TIMEOUT_BEHAVIOR.NEXT_HIGHEST;
+  }
+  if (normalized === TIMEOUT_BEHAVIOR.KICK_AND_RESET_ROUND) {
+    return TIMEOUT_BEHAVIOR.KICK_AND_RESET_ROUND;
+  }
+  if (normalized === TIMEOUT_BEHAVIOR.AUTO_FOLD || normalized === "pass") {
+    return TIMEOUT_BEHAVIOR.AUTO_FOLD;
+  }
+
+  if (normalized === "none") {
+    return TIMEOUT_BEHAVIOR.NEXT_HIGHEST;
+  }
+
+  return TIMEOUT_BEHAVIOR.NEXT_HIGHEST;
+}
+
+function getNextHigherBid(currentBid) {
+  if (!currentBid) {
+    return BID_LADDER[0] || null;
+  }
+
+  for (const candidate of BID_LADDER) {
+    if (compareHands(candidate, currentBid) > 0) {
+      return candidate;
+    }
+  }
+
+  return null;
+}
+
+function buildBidLadder() {
+  const candidates = [];
+
+  for (let rank = 2; rank <= 14; rank += 1) {
+    candidates.push(normalizeHand({ type: "HIGH_CARD", primaryRanks: [rank] }));
+    candidates.push(normalizeHand({ type: "PAIR", primaryRanks: [rank] }));
+    candidates.push(normalizeHand({ type: "THREE_OF_A_KIND", primaryRanks: [rank] }));
+    candidates.push(normalizeHand({ type: "FLUSH", primaryRanks: [rank], suit: "CLUBS" }));
+  }
+
+  for (let rank = 4; rank <= 14; rank += 1) {
+    candidates.push(normalizeHand({ type: "STRAIGHT", primaryRanks: [rank] }));
+    candidates.push(normalizeHand({ type: "STRAIGHT_FLUSH", primaryRanks: [rank], suit: "CLUBS" }));
+  }
+
+  for (let high = 3; high <= 14; high += 1) {
+    for (let low = 2; low < high; low += 1) {
+      candidates.push(normalizeHand({ type: "TWO_PAIR", primaryRanks: [high, low] }));
+      candidates.push(normalizeHand({ type: "FULL_HOUSE", primaryRanks: [high, low] }));
+    }
+  }
+
+  candidates.sort((left, right) => compareHands(left, right));
+  return candidates;
 }
 
 function resetGameState(io, game) {
@@ -584,6 +681,7 @@ function resetGameState(io, game) {
   });
 
   game.currentBid = null;
+  game.currentBidBy = null;
   game.currentTurn = null;
   game.reveal = null;
   game.roundResult = null;

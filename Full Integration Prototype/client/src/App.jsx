@@ -64,7 +64,7 @@ function App() {
     () => ({
       turnTimeoutSeconds: Number(game?.settings?.turnTimeoutSeconds || 60),
       maxCardsToLose: Number(game?.settings?.maxCardsToLose || 6),
-      autoFoldBehavior: String(game?.settings?.autoFoldBehavior || "none"),
+      autoFoldBehavior: String(game?.settings?.autoFoldBehavior || "next_highest"),
     }),
     [game?.settings?.autoFoldBehavior, game?.settings?.maxCardsToLose, game?.settings?.turnTimeoutSeconds]
   );
