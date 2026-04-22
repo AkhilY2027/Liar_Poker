@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 
 const AUTO_FOLD_OPTIONS = [
   { value: "none", label: "Option 1 (TBD)" },
@@ -6,16 +6,25 @@ const AUTO_FOLD_OPTIONS = [
   { value: "blank_b", label: "Option 3 (TBD)" },
 ];
 
-function GameSettingsPanel({ settings, onUpdateSettings, disabled }) {
+function GameSettingsPanel({ settings, onUpdateSettings, onResetAllCards, disabled }) {
   const turnTimeoutSeconds = Number(settings?.turnTimeoutSeconds || 60);
   const maxCardsToLose = Number(settings?.maxCardsToLose || 6);
   const autoFoldBehavior = String(settings?.autoFoldBehavior || "none");
+  const [showResetConfirmation, setShowResetConfirmation] = useState(false);
 
   function update(partial) {
     if (disabled) {
       return;
     }
     onUpdateSettings(partial);
+  }
+
+  function handleResetAllCards() {
+    if (disabled || !onResetAllCards) {
+      return;
+    }
+    onResetAllCards();
+    setShowResetConfirmation(false);
   }
 
   return (
@@ -75,8 +84,37 @@ function GameSettingsPanel({ settings, onUpdateSettings, disabled }) {
           </select>
         </label>
 
-        <p className="muted">Changing any game setting resets the game immediately.</p>
+        <p className="muted">Changing any game setting resets the current round immediately.</p>
+
+        <div className="resetGameSection">
+          <button
+            type="button"
+            className="resetGameBtn"
+            onClick={() => setShowResetConfirmation(true)}
+            disabled={disabled}
+          >
+            Reset Game
+          </button>
+          <p className="muted">Reset all players to 3 cards and start fresh.</p>
+        </div>
       </div>
+
+      {showResetConfirmation && (
+        <div className="modal">
+          <div className="modalContent">
+            <h3>Reset Game?</h3>
+            <p>This will reset all players to 3 cards and start a new game.</p>
+            <div className="modalActions">
+              <button type="button" onClick={() => setShowResetConfirmation(false)} className="cancelBtn">
+                Cancel
+              </button>
+              <button type="button" onClick={handleResetAllCards} className="confirmBtn">
+                Confirm Reset
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }

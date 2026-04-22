@@ -625,3 +625,95 @@ button {
     height: auto;
   }
 }
+
+.resetGameSection {
+  border-top: 1px solid #2f3a44;
+  padding-top: 1rem;
+  margin-top: 1rem;
+}
+
+.resetGameBtn {
+  background: #d45555;
+  color: #fff;
+  padding: 0.6rem 1rem;
+  font-weight: 700;
+  border-radius: 8px;
+  border: 0;
+  cursor: pointer;
+  width: 100%;
+}
+
+.resetGameBtn:hover:not(:disabled) {
+  background: #e07a7a;
+}
+
+.resetGameBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+}
+
+.modalContent {
+  background: #1a1f24;
+  border: 1px solid #456175;
+  border-radius: 12px;
+  padding: 1.5rem;
+  max-width: 400px;
+  width: calc(100% - 2rem);
+  box-shadow: 0 12px 32px rgba(5, 10, 20, 0.5);
+}
+
+.modalContent h3 {
+  margin: 0 0 0.5rem 0;
+  color: #f8fbff;
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.modalContent p {
+  color: #c5d3e0;
+  margin: 0 0 1.2rem 0;
+}
+
+.modalActions {
+  display: flex;
+  gap: 0.8rem;
+  justify-content: flex-end;
+}
+
+.cancelBtn,
+.confirmBtn {
+  padding: 0.6rem 1rem;
+  border: 0;
+  border-radius: 8px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.cancelBtn {
+  background: #617589;
+  color: #f3f8ff;
+}
+
+.cancelBtn:hover {
+  background: #7487a0;
+}
+
+.confirmBtn {
+  background: #d45555;
+  color: #fff;
+}
+
+.confirmBtn:hover {
+  background: #e07a7a;
+}

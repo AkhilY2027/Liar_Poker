@@ -6,17 +6,13 @@
 12. Timeout Behavior
 - Create many options:
 - 1. Auto-fold. So turn is passed to next player. Not particularly worth it.
-	Current bug where if players continuously auto-fold, then current big is attributed to previous player instead of actual player
+	Current bug where if players continuously auto-fold, then current bet is attributed to previous player instead of actual player
 		Ex. So player 1 starts auto-folding chain, but player 5 plays. Bid is attributed to player 4.
 - 2. Have player bet next highest hand or fold if at highest
 	Probably best
 - 3. Kick player out and "Reset round"
 	Not reset the game itself, but reset the round with player kicked out
 - Don't need to reset round upon changing, as this only applies upon timeout
-
-13. Need to have reset current game be differentiated from reset round
-- Basically, reset game be resetting everyone's cards to 3 while reset round means to keep everyone's current card counts but basically replay the round
-- Change button to "reset round" while "reset game" is something within settings with a confirmation button
 
 14. Need to have error codes appear in the same text box as the victory text box
 
@@ -40,6 +36,10 @@ Bugs:
 - Game requires only 3-card straights instead of 5 (gameLogic:538)
 
 Completed:
+13. Differentiated "Reset Round" from "Reset Game"
+  - "Reset Round" button: Keeps all players at their current card counts, clears bid/turn/round state, deals fresh cards
+  - "Reset Game" button: In Game Settings tab, with confirmation dialog; resets all players to 3 cards with a fresh game
+  - Game settings changes now reset the round (not the full game)
 8. Should have a limit of 8 players
 6. Have UI automatically update and blank out hand options that are lesser than the current bid
 1. Give player an initial hand of 3 cards from a 52-card deck (The total cards of the player pool should all be contained in one deck)

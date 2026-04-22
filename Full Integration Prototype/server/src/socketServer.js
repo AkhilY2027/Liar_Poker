@@ -150,14 +150,14 @@ function registerSocketHandlers(io) {
         }
 
         game.settings = nextSettings;
-  clearRevealTimer(game.id);
-        resetGameState(io, game);
+        clearRevealTimer(game.id);
+        resetRoundAndRefill(io, game);
         clearGameTimer(game.id);
         scheduleTurnTimer(io, game);
 
         appendLog(
           game,
-          `Game settings updated: timeout ${nextSettings.turnTimeoutSeconds}s, max cards ${nextSettings.maxCardsToLose}. Game reset.`
+          `Game settings updated: timeout ${nextSettings.turnTimeoutSeconds}s, max cards ${nextSettings.maxCardsToLose}. Round reset.`
         );
         logInfo("update_game_settings", {
           roomId: game.id,
@@ -258,17 +258,51 @@ function registerSocketHandlers(io) {
     socket.on(EVENT.resetGame, () => {
       const game = getSocketGame(socket);
       if (!game) {
-        emitInvalid(socket, "Join a game before resetting the game.", ERROR_CODE.notInGame);
+        emitInvalid(socket, "Join a game before resetting the round.", ERROR_CODE.notInGame);
         return;
       }
 
       withGameLock(io, game, socket, "reset_game", () => {
         clearRevealTimer(game.id);
+        resetRoundAndRefill(io, game);
+        clearGameTimer(game.id);
+        scheduleTurnTimer(io, game);
+        appendLog(game, "Round reset.");
+        logInfo("reset_game", { roomId: game.id, playerId: socket.id });
+      });
+    });
+
+    socket.on(EVENT.resetAllCards, () => {
+      const game = getSocketGame(socket);
+      if (!game) {
+        emitInvalid(socket, "Join a game before resetting all cards.", ERROR_CODE.notInGame);
+        return;
+      }
+
+      withGameLock(io, game, socket, "reset_all_cards", () => {
+        clearRevealTimer(game.id);
         resetGameState(io, game);
         clearGameTimer(game.id);
         scheduleTurnTimer(io, game);
-        appendLog(game, "Game reset.");
-        logInfo("reset_game", { roomId: game.id, playerId: socket.id });
+        appendLog(game, "Game reset. All players reset to 3 cards.");
+        logInfo("reset_all_cards", { roomId: game.id, playerId: socket.id });
+      });
+    });
+
+    socket.on(EVENT.resetAllCards, () => {
+      const game = getSocketGame(socket);
+      if (!game) {
+        emitInvalid(socket, "Join a game before resetting all cards.", ERROR_CODE.notInGame);
+        return;
+      }
+
+      withGameLock(io, game, socket, "reset_all_cards", () => {
+        clearRevealTimer(game.id);
+        resetGameState(io, game);
+        clearGameTimer(game.id);
+        scheduleTurnTimer(io, game);
+        appendLog(game, "Game reset. All players reset to 3 cards.");
+        logInfo("reset_all_cards", { roomId: game.id, playerId: socket.id });
       });
     });
 

@@ -109,6 +109,12 @@ export function useGameSocket(playerName) {
         }
         socket.emit(EVENT.resetGame);
       },
+      resetAllCards() {
+        if (!socket) {
+          return;
+        }
+        socket.emit(EVENT.resetAllCards);
+      },
       setDisplayName(displayName) {
         if (!socket) {
           return;

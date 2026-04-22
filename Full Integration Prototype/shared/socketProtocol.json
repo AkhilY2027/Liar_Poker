@@ -9,6 +9,7 @@
     "placeBid": "place_bid",
     "callLiar": "call_liar",
     "resetGame": "reset_game",
+    "resetAllCards": "reset_all_cards",
     "gameUpdate": "game_update",
     "invalidMove": "invalid_move",
     "roleUpdate": "role_update"
