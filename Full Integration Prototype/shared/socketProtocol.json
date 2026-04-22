@@ -1,0 +1,28 @@
+{
+  "events": {
+    "connectionReady": "connection_ready",
+    "createGame": "create_game",
+    "gameCreated": "game_created",
+    "joinGame": "join_game",
+    "setDisplayName": "set_display_name",
+    "updateGameSettings": "update_game_settings",
+    "placeBid": "place_bid",
+    "callLiar": "call_liar",
+    "resetGame": "reset_game",
+    "gameUpdate": "game_update",
+    "invalidMove": "invalid_move",
+    "roleUpdate": "role_update"
+  },
+  "errorCodes": {
+    "busy": "BUSY",
+    "notInGame": "NOT_IN_GAME",
+    "viewerForbidden": "VIEWER_FORBIDDEN",
+    "notPlayer": "NOT_PLAYER",
+    "notInProgress": "GAME_NOT_IN_PROGRESS",
+    "outOfTurn": "OUT_OF_TURN",
+    "badBid": "BAD_BID",
+    "badBidPayload": "BAD_BID_PAYLOAD",
+    "noBidToChallenge": "NO_BID_TO_CHALLENGE",
+    "serverError": "SERVER_ERROR"
+  }
+}

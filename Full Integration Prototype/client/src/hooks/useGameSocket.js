@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { createSocketClient } from "../network/socketClient";
+import protocol from "../../../shared/socketProtocol.json";
+
+const { events: EVENT } = protocol;
 
 export function useGameSocket(playerName) {
   const [socket, setSocket] = useState(null);
@@ -20,8 +23,10 @@ export function useGameSocket(playerName) {
   });
   const [connected, setConnected] = useState(false);
   const [error, setError] = useState("");
+  const [errorCode, setErrorCode] = useState("");
   const [socketId, setSocketId] = useState(null);
   const [role, setRole] = useState("viewer");
+  const [gameId, setGameId] = useState("main-room");
 
   useEffect(() => {
     const client = createSocketClient();
@@ -32,7 +37,8 @@ export function useGameSocket(playerName) {
       setSocketId(client.id || null);
       setRole("viewer");
       setError("");
-      client.emit("join_game", { name: playerName });
+      setErrorCode("");
+      client.emit(EVENT.joinGame, { name: playerName });
     });
 
     client.on("disconnect", () => {
@@ -41,19 +47,37 @@ export function useGameSocket(playerName) {
       setRole("viewer");
     });
 
-    client.on("game_update", (state) => {
+    client.on(EVENT.connectionReady, () => {
+      setError("");
+      setErrorCode("");
+    });
+
+    client.on(EVENT.gameCreated, ({ gameId: createdGameId } = {}) => {
+      if (!createdGameId) {
+        return;
+      }
+      setGameId(createdGameId);
+      client.emit(EVENT.joinGame, { name: playerName, gameId: createdGameId });
+    });
+
+    client.on(EVENT.gameUpdate, (state) => {
       setGame(state);
+      if (state?.id) {
+        setGameId(state.id);
+      }
       if (state?.role === "player" || state?.role === "viewer") {
         setRole(state.role);
       }
       setError("");
+      setErrorCode("");
     });
 
-    client.on("invalid_move", ({ message }) => {
+    client.on(EVENT.invalidMove, ({ message, code } = {}) => {
       setError(message || "Invalid move");
+      setErrorCode(code || "");
     });
 
-    client.on("role_update", ({ role: nextRole } = {}) => {
+    client.on(EVENT.roleUpdate, ({ role: nextRole } = {}) => {
       if (nextRole === "player" || nextRole === "viewer") {
         setRole(nextRole);
       }
@@ -71,45 +95,60 @@ export function useGameSocket(playerName) {
         if (!socket) {
           return;
         }
-        socket.emit("place_bid", { hand });
+        socket.emit(EVENT.placeBid, { hand });
       },
       callLiar() {
         if (!socket) {
           return;
         }
-        socket.emit("call_liar");
+        socket.emit(EVENT.callLiar);
       },
       resetGame() {
         if (!socket) {
           return;
         }
-        socket.emit("reset_game");
+        socket.emit(EVENT.resetGame);
       },
       setDisplayName(displayName) {
         if (!socket) {
           return;
         }
-        socket.emit("set_display_name", { displayName });
+        socket.emit(EVENT.setDisplayName, { displayName });
       },
       updateGameSettings(settings) {
         if (!socket) {
           return;
         }
-        socket.emit("update_game_settings", { settings });
+        socket.emit(EVENT.updateGameSettings, { settings });
+      },
+      createGame(preferredGameId = "") {
+        if (!socket) {
+          return;
+        }
+        socket.emit(EVENT.createGame, { gameId: preferredGameId });
+      },
+      joinGame(nextGameId = "") {
+        if (!socket) {
+          return;
+        }
+        socket.emit(EVENT.joinGame, { name: playerName, gameId: nextGameId });
       },
       clearError() {
         setError("");
+        setErrorCode("");
       },
     }),
-    [socket]
+    [socket, playerName]
   );
 
   return {
     game,
     connected,
     error,
+    errorCode,
     socketId,
     role,
+    gameId,
     ...actions,
   };
 }

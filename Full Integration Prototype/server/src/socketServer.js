@@ -19,6 +19,7 @@ const {
   isBidAchievableFromActiveHands,
   findBidHighlightCards,
 } = require("./gameLogic");
+const { events: EVENT, errorCodes: ERROR_CODE } = require("../../shared/socketProtocol.json");
 
 const DEFAULT_ROOM_ID = "main-room";
 const DISCONNECT_MODE = String(process.env.DISCONNECT_MODE || "autofold").toLowerCase();
@@ -44,15 +45,17 @@ games.set(DEFAULT_ROOM_ID, createGame(DEFAULT_ROOM_ID, defaultGameSettings()));
 
 function registerSocketHandlers(io) {
   io.on("connection", (socket) => {
-    socket.on("create_game", ({ gameId } = {}) => {
+    socket.emit(EVENT.connectionReady, { connected: true });
+
+    socket.on(EVENT.createGame, ({ gameId } = {}) => {
       const roomId = sanitizeGameId(gameId) || `room-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
       if (!games.has(roomId)) {
         games.set(roomId, createGame(roomId, defaultGameSettings()));
       }
-      socket.emit("game_created", { gameId: roomId });
+      socket.emit(EVENT.gameCreated, { gameId: roomId });
     });
 
-    socket.on("join_game", ({ name, gameId } = {}) => {
+    socket.on(EVENT.joinGame, ({ name, gameId } = {}) => {
       const roomId = sanitizeGameId(gameId) || DEFAULT_ROOM_ID;
       const game = getOrCreateGame(roomId);
       socket.join(roomId);
@@ -73,7 +76,7 @@ function registerSocketHandlers(io) {
           `${sanitizeViewerName(name)} joined ${roomId} as viewer (${gameUnderway ? "game in progress" : "table full"}).`
         );
         logInfo("join_game_viewer", { roomId, viewerId: socket.id });
-        socket.emit("role_update", { role: "viewer", reason: gameUnderway ? "game_in_progress" : "table_full" });
+        socket.emit(EVENT.roleUpdate, { role: "viewer", reason: gameUnderway ? "game_in_progress" : "table_full" });
         broadcastGame(io, roomId);
         return;
       }
@@ -88,10 +91,10 @@ function registerSocketHandlers(io) {
       broadcastGame(io, roomId);
     });
 
-    socket.on("set_display_name", ({ displayName } = {}) => {
+    socket.on(EVENT.setDisplayName, ({ displayName } = {}) => {
       const game = getSocketGame(socket);
       if (!game) {
-        emitInvalid(socket, "Join a game before changing display name.");
+        emitInvalid(socket, "Join a game before changing display name.", ERROR_CODE.notInGame);
         return;
       }
 
@@ -99,7 +102,7 @@ function registerSocketHandlers(io) {
         if (socket.data.role === "viewer") {
           const viewer = game.viewers?.find((item) => item.id === socket.id);
           if (!viewer) {
-            emitInvalid(socket, "Join a game before changing display name.");
+            emitInvalid(socket, "Join a game before changing display name.", ERROR_CODE.notInGame);
             return;
           }
 
@@ -112,7 +115,7 @@ function registerSocketHandlers(io) {
         const previous = game.players.find((item) => item.id === socket.id);
         const updated = updatePlayerDisplayName(game, socket.id, displayName);
         if (!updated || !previous) {
-          emitInvalid(socket, "Join the game before changing display name.");
+          emitInvalid(socket, "Join the game before changing display name.", ERROR_CODE.notPlayer);
           return;
         }
 
@@ -126,10 +129,10 @@ function registerSocketHandlers(io) {
       });
     });
 
-    socket.on("update_game_settings", ({ settings } = {}) => {
+    socket.on(EVENT.updateGameSettings, ({ settings } = {}) => {
       const game = getSocketGame(socket);
       if (!game) {
-        emitInvalid(socket, "Join a game before changing game settings.");
+        emitInvalid(socket, "Join a game before changing game settings.", ERROR_CODE.notInGame);
         return;
       }
 
@@ -164,39 +167,39 @@ function registerSocketHandlers(io) {
       });
     });
 
-    socket.on("place_bid", ({ hand } = {}) => {
+    socket.on(EVENT.placeBid, ({ hand } = {}) => {
       const game = getSocketGame(socket);
       if (!game) {
-        emitInvalid(socket, "Join a game before placing bids.");
+        emitInvalid(socket, "Join a game before placing bids.", ERROR_CODE.notInGame);
         return;
       }
 
       withGameLock(io, game, socket, "place_bid", () => {
         if (socket.data.role === "viewer") {
-          emitInvalid(socket, "Viewers cannot place bids.");
+          emitInvalid(socket, "Viewers cannot place bids.", ERROR_CODE.viewerForbidden);
           return;
         }
 
         const player = game.players.find((item) => item.id === socket.id);
         if (!player || !player.active) {
-          emitInvalid(socket, "Join the game before placing bids.");
+          emitInvalid(socket, "Join the game before placing bids.", ERROR_CODE.notPlayer);
           return;
         }
 
         if (game.gameState !== "in_progress") {
-          emitInvalid(socket, "Game is not in progress yet.");
+          emitInvalid(socket, "Game is not in progress yet.", ERROR_CODE.notInProgress);
           return;
         }
 
         if (!isPlayersTurn(game, socket.id)) {
-          emitInvalid(socket, "It is not your turn.");
+          emitInvalid(socket, "It is not your turn.", ERROR_CODE.outOfTurn);
           return;
         }
 
         try {
           const normalized = normalizeHand(hand);
           if (!isValidBid(game.currentBid, normalized)) {
-            emitInvalid(socket, "Bid must be strictly higher than current bid.");
+            emitInvalid(socket, "Bid must be strictly higher than current bid.", ERROR_CODE.badBid);
             return;
           }
 
@@ -207,43 +210,43 @@ function registerSocketHandlers(io) {
           advanceTurn(game);
           scheduleTurnTimer(io, game);
         } catch (error) {
-          emitInvalid(socket, error.message);
+          emitInvalid(socket, error.message, ERROR_CODE.badBidPayload);
         }
       });
     });
 
-    socket.on("call_liar", () => {
+    socket.on(EVENT.callLiar, () => {
       const game = getSocketGame(socket);
       if (!game) {
-        emitInvalid(socket, "Join a game before calling liar.");
+        emitInvalid(socket, "Join a game before calling liar.", ERROR_CODE.notInGame);
         return;
       }
 
       withGameLock(io, game, socket, "call_liar", () => {
         if (socket.data.role === "viewer") {
-          emitInvalid(socket, "Viewers cannot call liar.");
+          emitInvalid(socket, "Viewers cannot call liar.", ERROR_CODE.viewerForbidden);
           return;
         }
 
         const player = game.players.find((item) => item.id === socket.id);
         if (!player || !player.active) {
-          emitInvalid(socket, "Join the game before calling liar.");
+          emitInvalid(socket, "Join the game before calling liar.", ERROR_CODE.notPlayer);
           return;
         }
 
         if (game.gameState !== "in_progress") {
-          emitInvalid(socket, "Game is not in progress.");
+          emitInvalid(socket, "Game is not in progress.", ERROR_CODE.notInProgress);
           return;
         }
 
         if (!isPlayersTurn(game, socket.id)) {
-          emitInvalid(socket, "It is not your turn.");
+          emitInvalid(socket, "It is not your turn.", ERROR_CODE.outOfTurn);
           return;
         }
 
         const previous = getPreviousPlayer(game);
         if (!previous || !game.currentBid) {
-          emitInvalid(socket, "No bid is available to challenge.");
+          emitInvalid(socket, "No bid is available to challenge.", ERROR_CODE.noBidToChallenge);
           return;
         }
 
@@ -252,10 +255,10 @@ function registerSocketHandlers(io) {
       });
     });
 
-    socket.on("reset_game", () => {
+    socket.on(EVENT.resetGame, () => {
       const game = getSocketGame(socket);
       if (!game) {
-        emitInvalid(socket, "Join a game before resetting the game.");
+        emitInvalid(socket, "Join a game before resetting the game.", ERROR_CODE.notInGame);
         return;
       }
 
@@ -336,14 +339,12 @@ function registerSocketHandlers(io) {
       });
     });
 
-    const defaultGame = getOrCreateGame(DEFAULT_ROOM_ID);
-    socket.emit("game_update", serializeGame(defaultGame, socket.id, socket.data.role || "viewer"));
   });
 }
 
 function withGameLock(io, game, socket, eventName, fn) {
   if (game.processingAction) {
-    emitInvalid(socket, "Game is processing another action. Try again.");
+    emitInvalid(socket, "Game is processing another action. Try again.", ERROR_CODE.busy, true);
     return;
   }
 
@@ -351,7 +352,7 @@ function withGameLock(io, game, socket, eventName, fn) {
   try {
     fn();
   } catch (error) {
-    emitInvalid(socket, "Unexpected server error.");
+    emitInvalid(socket, "Unexpected server error.", ERROR_CODE.serverError);
     logError("withGameLock", {
       roomId: game.id,
       eventName,
@@ -364,18 +365,20 @@ function withGameLock(io, game, socket, eventName, fn) {
   }
 }
 
-function emitInvalid(socket, message) {
+function emitInvalid(socket, message, code = ERROR_CODE.badBid, retriable = false) {
   const game = getSocketGame(socket);
   if (game) {
     const player = game.players.find((item) => item.id === socket.id);
-    appendLog(game, `Invalid action by ${player ? playerDisplayName(player) : socket.id}: ${message}`);
+    appendLog(game, `Invalid action by ${player ? playerDisplayName(player) : socket.id}: [${code}] ${message}`);
     logWarn("invalid_move", {
       roomId: game.id,
       playerId: socket.id,
+      code,
+      retriable,
       reason: message,
     });
   }
-  socket.emit("invalid_move", { message });
+  socket.emit(EVENT.invalidMove, { code, message, retriable });
 }
 
 function broadcastGame(io, gameId) {
@@ -394,7 +397,7 @@ function broadcastGame(io, gameId) {
     if (!socket) {
       continue;
     }
-    socket.emit("game_update", serializeGame(game, socketId, socket.data.role || "viewer"));
+    socket.emit(EVENT.gameUpdate, serializeGame(game, socketId, socket.data.role || "viewer"));
   }
 }
 
@@ -589,7 +592,7 @@ function promoteViewers(io, game) {
     });
     player.cardTarget = 3;
     viewerSocket.data.role = "player";
-    viewerSocket.emit("role_update", { role: "player", reason: "slot_opened" });
+    viewerSocket.emit(EVENT.roleUpdate, { role: "player", reason: "slot_opened" });
     appendLog(game, `${playerDisplayName(player)} moved from viewer to player.`);
     promoted += 1;
   }
