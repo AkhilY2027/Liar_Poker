@@ -9,8 +9,8 @@ Other Notes:
 - Apparently have a functionality for multiple games to be played (create_game, game_created at socketServer:47)
 
 Bugs:
-- If we have more cards than 6, then when current player's turn, shrinked view of board will not display the many face-down cards of other players properly
-- Make the borders on victory screen more legible
+- 
+- Make the borders on victory screen more legible (Both the borders around the player cards and the cards for winning hands)
 - If "loser" of liar game gets more than max cards, then they may not be pushed to be a viewer (letting other viewers have their turn)
 	Looking at behavior, loser just gets reset to three – not necessarily becoming viewer if someone is in waiting room
 - Do suit comparisons ever matter here?
@@ -18,8 +18,11 @@ Bugs:
 - Combine functions isBidAchievableFromActiveHands and findBidHighlightCards if possible, since they seem to overlap functions
 	Maybe. First function can ensure achievability while second just gets the cards. Idk if tiny bit more efficiency is worth not having the functions separate
 - Game requires only 3-card straights instead of 5 (gameLogic:538)
+- Check Flush logic
+	Ex. Something like a "2-high" flush is not possible, as there have to be four other cards of the same suit that are lower than 2 to work
+	Flush must work by seeing if the high cards are present within the set, then checking if there are other (lower) cards within the set that can be made with the flush
 
-Completed:
+## Completed:
 8. Should have a limit of 8 players
 6. Have UI automatically update and blank out hand options that are lesser than the current bid
 1. Give player an initial hand of 3 cards from a 52-card deck (The total cards of the player pool should all be contained in one deck)
@@ -57,3 +60,4 @@ Bug: invalid_move is emitted for both validation errors and lock/contention case
 - Don't need to reset round upon changing, as this only applies upon timeout
 Bug: "Folding" – If a player auto-folds to another player, that player is now treated as owner as current bid
 	Basically, if we auto-fold for a long time, then current bid is just attributed to previous player regardless of if they actually made that bid
+Bug: If we have more cards than 6, then when current player's turn, shrinked view of board will not display the many face-down cards of other players properly

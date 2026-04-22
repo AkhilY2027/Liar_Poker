@@ -95,6 +95,16 @@ function App() {
     return classes.join(" ");
   }
 
+  function seatCardsClassName(player) {
+    const classes = ["seatCards"];
+    const cardCount = Number(player?.cardCount || 0);
+    const isCurrentSeat = player?.id === game.currentTurn;
+    if (!isRevealPhase && (cardCount > 6 || (isCurrentSeat && cardCount >= 6))) {
+      classes.push("splitRows");
+    }
+    return classes.join(" ");
+  }
+
   useEffect(() => {
     const id = setInterval(() => setNowMs(Date.now()), 200);
     return () => clearInterval(id);
@@ -204,7 +214,7 @@ function App() {
                     player ? (
                       <div className={seatClassName(player.id)} key={player.id}>
                         <div className="seatName">{player.id === socketId ? "YOU" : player.displayName || player.name}</div>
-                        <div className="seatCards">
+                        <div className={seatCardsClassName(player)}>
                           {isRevealPhase && Array.isArray(player.revealedCards) && player.revealedCards.length
                             ? player.revealedCards.map((card, i) => {
                                 const cardKey = `${card.rank}-${card.suit}`;
@@ -254,7 +264,7 @@ function App() {
                     player ? (
                       <div className={seatClassName(player.id)} key={player.id}>
                         <div className="seatName">{player.id === socketId ? "YOU" : player.displayName || player.name}</div>
-                        <div className="seatCards">
+                        <div className={seatCardsClassName(player)}>
                           {isRevealPhase && Array.isArray(player.revealedCards) && player.revealedCards.length
                             ? player.revealedCards.map((card, i) => {
                                 const cardKey = `${card.rank}-${card.suit}`;

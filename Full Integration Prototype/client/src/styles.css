@@ -114,7 +114,7 @@ body {
   overflow: hidden;
   padding: 0.9rem;
   display: grid;
-  grid-template-columns: minmax(180px, 1fr) minmax(360px, 1.2fr) minmax(180px, 1fr);
+  grid-template-columns: minmax(160px, 0.95fr) minmax(0, 1.2fr) minmax(160px, 0.95fr);
   align-items: center;
   gap: 0.75rem;
   min-height: 0;
@@ -142,6 +142,9 @@ body {
   align-content: center;
   justify-items: center;
   min-height: 0;
+  min-width: 0;
+  width: 100%;
+  overflow: visible;
   gap: 0.9rem;
 }
 
@@ -201,12 +204,23 @@ body {
   margin-top: 0.42rem;
   display: flex;
   justify-content: center;
-  gap: 0.24rem;
+  --seat-gap: 0.24rem;
+  gap: var(--seat-gap);
+  flex-wrap: nowrap;
+}
+
+.seatCards.splitRows {
+  display: flex;
+  flex-wrap: wrap;
+  width: min(calc(var(--seat-card-w) * 4 + var(--seat-gap) * 3), 100%);
+  justify-content: center;
 }
 
 .seatCard {
-  width: clamp(36px, 4.4vw, 48px);
-  height: clamp(56px, 6.8vw, 72px);
+  --seat-card-w: clamp(36px, 4.4vw, 48px);
+  --seat-card-h: clamp(56px, 6.8vw, 72px);
+  width: var(--seat-card-w);
+  height: var(--seat-card-h);
   border-radius: 4px;
   border: 1px solid #505965;
   background: repeating-linear-gradient(135deg, #141b21, #141b21 6px, #27303a 6px, #27303a 12px);
@@ -239,7 +253,8 @@ body {
 }
 
 .challengeCard {
-  width: min(440px, 100%);
+  width: 100%;
+  max-width: 440px;
   height: 37.5vh;
   border-radius: 16px;
   border: 1px solid #304048;
@@ -281,21 +296,23 @@ body {
 .handArea {
   position: static;
   width: fit-content;
+  min-width: 0;
   display: grid;
   justify-items: center;
 }
 
 .handCardPanel {
-  width: fit-content;
-  min-width: min(100%, 420px);
-  height: 25vh;
+  width: max-content;
+  max-width: 100%;
+  min-width: 0;
+  height: auto;
   display: grid;
   justify-items: center;
   align-content: center;
   background: transparent;
   border: 0;
-  padding: 0 0.7rem;
-  overflow: hidden;
+  padding: 0.45rem 0.7rem 0.7rem;
+  overflow: visible;
 }
 
 .handCardPanel h2 {
@@ -306,11 +323,17 @@ body {
   text-align: center;
 }
 
-.handGrid {
+.handRows {
+  display: grid;
+  gap: clamp(0.35rem, 0.6vw, 0.8rem);
+  width: max-content;
+  max-width: 100%;
+}
+
+.handRow {
   display: flex;
   justify-content: center;
   gap: clamp(0.35rem, 0.6vw, 0.8rem);
-  flex-wrap: nowrap;
 }
 
 .playingCard {
