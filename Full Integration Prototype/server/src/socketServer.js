@@ -70,6 +70,9 @@ function registerSocketHandlers(io) {
       socket.data.gameId = roomId;
 
       removeViewer(game, socket.id);
+      // Keep seat assignment stable over long-lived hosted sessions by
+      // removing stale inactive player entries before capacity checks.
+      removeInactivePlayers(game);
 
       const label = nextPlayerLabel(game);
       const gameUnderway = game.gameState === "in_progress" || game.gameState === "reveal";
@@ -874,6 +877,7 @@ function removeViewer(game, viewerId) {
 function nextPlayerLabel(game) {
   const used = new Set(
     game.players
+      .filter((player) => player.active)
       .map((player) => {
         const match = /^Player\s+(\d+)$/i.exec(String(player.name || ""));
         return match ? Number(match[1]) : null;
