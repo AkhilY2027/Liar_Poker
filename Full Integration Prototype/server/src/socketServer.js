@@ -17,7 +17,6 @@ const {
   normalizeHand,
   compareHands,
   isValidBid,
-  isBidAchievableFromActiveHands,
   findBidHighlightCards,
 } = require("./gameLogic");
 const { events: EVENT, errorCodes: ERROR_CODE } = require("../../shared/socketProtocol.json");
@@ -741,7 +740,8 @@ function resolveLiarCall(io, game, caller, previous, isAuto = false) {
   clearGameTimer(game.id);
   clearRevealTimer(game.id);
 
-  const bidWasAchievable = isBidAchievableFromActiveHands(game, game.currentBid);
+  const winningCardKeys = findBidHighlightCards(game, game.currentBid);
+  const bidWasAchievable = winningCardKeys.length > 0;
   const loser = bidWasAchievable ? caller : previous;
   const winner = bidWasAchievable ? previous : caller;
   if (!loser) {
@@ -753,8 +753,6 @@ function resolveLiarCall(io, game, caller, previous, isAuto = false) {
   const prefix = isAuto ? "Auto-called LIAR" : "called LIAR";
   const resolutionText = bidWasAchievable ? "Bid was possible" : "Bid was not possible";
   const roundResultMessage = `${playerDisplayName(caller)} ${prefix} on ${playerDisplayName(previous)}. ${resolutionText}. ${playerDisplayName(loser)} loses the round.`;
-  const winningCardKeys = bidWasAchievable ? findBidHighlightCards(game, game.currentBid) : [];
-
   game.roundResult = {
     id: `${Date.now()}-${Math.random()}`,
     message: roundResultMessage,

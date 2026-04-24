@@ -428,80 +428,45 @@ function shuffle(cards) {
 }
 
 function isBidAchievableFromActiveHands(game, bid) {
+  // Retained as a backend diagnostics/debugging wrapper for boolean-only checks.
+  // Production reveal flow derives achievability through findBidHighlightCards.
+  return analyzeBidFromActiveHands(game, bid).achievable;
+}
+
+function findBidHighlightCards(game, bid) {
+  const analysis = analyzeBidFromActiveHands(game, bid, true);
+  if (!analysis.achievable) {
+    return [];
+  }
+
+  return analysis.selectedCards.map(cardKey);
+}
+
+function analyzeBidFromActiveHands(game, bid, includeSelection = false) {
   const cards = getActivePlayers(game).flatMap((player) => player.cards || []);
   if (!cards.length) {
-    return false;
+    return {
+      achievable: false,
+      selectedCards: [],
+    };
   }
 
   const rankCounts = new Map();
   const suitToRanks = new Map();
+  const rankToCards = new Map();
+  const suitToCards = new Map();
+  const allRanks = [];
+
   for (const card of cards) {
+    allRanks.push(card.rank);
+
     rankCounts.set(card.rank, (rankCounts.get(card.rank) || 0) + 1);
+
     if (!suitToRanks.has(card.suit)) {
       suitToRanks.set(card.suit, []);
     }
     suitToRanks.get(card.suit).push(card.rank);
-  }
 
-  const [a, b] = bid.primaryRanks;
-  if (bid.type === "HIGH_CARD") {
-    return (rankCounts.get(a) || 0) >= 1;
-  }
-  if (bid.type === "PAIR") {
-    return (rankCounts.get(a) || 0) >= 2;
-  }
-  if (bid.type === "THREE_OF_A_KIND") {
-    return (rankCounts.get(a) || 0) >= 3;
-  }
-  if (bid.type === "TWO_PAIR") {
-    return (rankCounts.get(a) || 0) >= 2 && (rankCounts.get(b) || 0) >= 2;
-  }
-  if (bid.type === "FULL_HOUSE") {
-    return (rankCounts.get(a) || 0) >= 3 && (rankCounts.get(b) || 0) >= 2;
-  }
-  if (bid.type === "STRAIGHT") {
-    return hasStraight(cards.map((card) => card.rank), a);
-  }
-  if (bid.type === "FLUSH") {
-    const suited = suitToRanks.get(bid.suit) || [];
-    if (suited.length < 5) {
-      return false;
-    }
-
-    const suitedSet = new Set(suited);
-    for (const rank of bid.primaryRanks) {
-      if (!suitedSet.has(rank)) {
-        return false;
-      }
-    }
-
-    const lowestDeclared = bid.primaryRanks[bid.primaryRanks.length - 1];
-    const neededLowerCards = 5 - bid.primaryRanks.length;
-    const lowerSuitedCount = suited.filter((rank) => rank < lowestDeclared).length;
-    return lowerSuitedCount >= neededLowerCards;
-  }
-  if (bid.type === "STRAIGHT_FLUSH") {
-    const suited = suitToRanks.get(bid.suit) || [];
-    return hasStraight(suited, a);
-  }
-
-  return false;
-}
-
-function findBidHighlightCards(game, bid) {
-  const activePlayers = getActivePlayers(game);
-  const cards = activePlayers.flatMap((player) => player.cards || []);
-  if (!cards.length) {
-    return [];
-  }
-
-  if (!isBidAchievableFromActiveHands(game, bid)) {
-    return [];
-  }
-
-  const rankToCards = new Map();
-  const suitToCards = new Map();
-  for (const card of cards) {
     if (!rankToCards.has(card.rank)) {
       rankToCards.set(card.rank, []);
     }
@@ -514,6 +479,54 @@ function findBidHighlightCards(game, bid) {
   }
 
   const [a, b] = bid.primaryRanks;
+  let achievable = false;
+
+  if (bid.type === "HIGH_CARD") {
+    achievable = (rankCounts.get(a) || 0) >= 1;
+  } else if (bid.type === "PAIR") {
+    achievable = (rankCounts.get(a) || 0) >= 2;
+  } else if (bid.type === "THREE_OF_A_KIND") {
+    achievable = (rankCounts.get(a) || 0) >= 3;
+  } else if (bid.type === "TWO_PAIR") {
+    achievable = (rankCounts.get(a) || 0) >= 2 && (rankCounts.get(b) || 0) >= 2;
+  } else if (bid.type === "FULL_HOUSE") {
+    achievable = (rankCounts.get(a) || 0) >= 3 && (rankCounts.get(b) || 0) >= 2;
+  } else if (bid.type === "STRAIGHT") {
+    achievable = hasStraight(allRanks, a);
+  } else if (bid.type === "FLUSH") {
+    const suited = suitToRanks.get(bid.suit) || [];
+    if (suited.length < 5) {
+      achievable = false;
+    } else {
+      const suitedSet = new Set(suited);
+      let hasDeclaredRanks = true;
+      for (const rank of bid.primaryRanks) {
+        if (!suitedSet.has(rank)) {
+          hasDeclaredRanks = false;
+          break;
+        }
+      }
+
+      if (hasDeclaredRanks) {
+        const lowestDeclared = bid.primaryRanks[bid.primaryRanks.length - 1];
+        const neededLowerCards = 5 - bid.primaryRanks.length;
+        const lowerSuitedCount = suited.filter((rank) => rank < lowestDeclared).length;
+        achievable = lowerSuitedCount >= neededLowerCards;
+      } else {
+        achievable = false;
+      }
+    }
+  } else if (bid.type === "STRAIGHT_FLUSH") {
+    achievable = hasStraight(suitToRanks.get(bid.suit) || [], a);
+  }
+
+  if (!achievable || !includeSelection) {
+    return {
+      achievable,
+      selectedCards: [],
+    };
+  }
+
   const selected = [];
 
   if (bid.type === "HIGH_CARD") {
@@ -564,7 +577,10 @@ function findBidHighlightCards(game, bid) {
     }
   }
 
-  return selected.map(cardKey);
+  return {
+    achievable: true,
+    selectedCards: selected,
+  };
 }
 
 function cardKey(card) {
