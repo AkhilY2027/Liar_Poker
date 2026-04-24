@@ -7,13 +7,10 @@ Other Notes:
 - Apparently have a functionality for multiple games to be played (create_game, game_created at socketServer:47)
 
 ## Bugs:
-- Make the borders on victory screen more legible (Both the borders around the player cards and the cards for winning hands)
 - If "loser" of liar game gets more than max cards, then they may not be pushed to be a viewer (letting other viewers have their turn)
 	Looking at behavior, loser just gets reset to three – not necessarily becoming viewer if someone is in waiting room
 	Of course, this only happens if total players <= 8, otherwise, can just have player replay with 3 cards
 		Maybe have it as options in game options?
-- Combine functions isBidAchievableFromActiveHands and findBidHighlightCards if possible, since they seem to overlap functions
-	Maybe. First function can ensure achievability while second just gets the cards. Idk if tiny bit more efficiency is worth not having the functions separate
 
 ## Completed:
 8. Should have a limit of 8 players
@@ -61,3 +58,6 @@ Bug: Check Flush logic
 	Flush must work by seeing if the high cards are present within the set, then checking if there are other (lower) cards within the set that can be made with the flush
 Bug: Do suit comparisons ever matter here?
 	We do this at gamelogic:316 for some reason. Need to understand what the suit comparison is for, as there is never a situation where suits have to be compared.
+Bug: Combine functions isBidAchievableFromActiveHands and findBidHighlightCards if possible, since they seem to overlap functions
+	Maybe. First function can ensure achievability while second just gets the cards. Idk if tiny bit more efficiency is worth not having the functions separate
+Bug: Make the borders on victory screen more legible (Both the borders around the player cards and the cards for winning hands)

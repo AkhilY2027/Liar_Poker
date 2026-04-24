@@ -177,27 +177,29 @@ body {
 }
 
 .seatRow.winner {
-  border: 1px solid rgba(220, 180, 72, 0.9);
+  border: 2px solid #f0c452;
   border-radius: 14px;
-  box-shadow: 0 0 0 2px rgba(220, 180, 72, 0.24), 0 0 24px rgba(220, 180, 72, 0.18);
+  box-shadow: 0 0 0 2px rgba(46, 35, 11, 0.78), 0 0 0 4px rgba(240, 196, 82, 0.42), 0 0 26px rgba(240, 196, 82, 0.24);
   padding: 0.35rem 0.4rem 0.45rem;
 }
 
 .seatRow.winner .seatName {
-  border-color: #dcb448;
-  background: rgba(128, 98, 27, 0.6);
+  border-color: #f0c452;
+  background: rgba(118, 86, 18, 0.78);
+  color: #fff6d7;
 }
 
 .seatRow.loser {
-  border: 1px solid rgba(230, 92, 92, 0.9);
+  border: 2px solid #f17070;
   border-radius: 14px;
-  box-shadow: 0 0 0 2px rgba(230, 92, 92, 0.2), 0 0 24px rgba(230, 92, 92, 0.18);
+  box-shadow: 0 0 0 2px rgba(48, 12, 12, 0.82), 0 0 0 4px rgba(241, 112, 112, 0.36), 0 0 26px rgba(241, 112, 112, 0.22);
   padding: 0.35rem 0.4rem 0.45rem;
 }
 
 .seatRow.loser .seatName {
-  border-color: #e65c5c;
-  background: rgba(120, 44, 44, 0.62);
+  border-color: #f17070;
+  background: rgba(118, 35, 35, 0.78);
+  color: #ffe1e1;
 }
 
 .seatCards {
@@ -229,7 +231,7 @@ body {
 
 .seatCard.reveal {
   background: #f3f7fb;
-  border-color: #d8e1ea;
+  border-color: #a6b5c5;
 }
 
 .seatCard.reveal img {
@@ -240,8 +242,8 @@ body {
 }
 
 .seatCard.reveal.winningBid {
-  border-color: #dcb448;
-  box-shadow: 0 0 0 2px rgba(220, 180, 72, 0.28);
+  border: 2px solid #f0c452;
+  box-shadow: 0 0 0 2px rgba(45, 34, 9, 0.62), 0 0 0 4px rgba(240, 196, 82, 0.36);
 }
 
 .seatRow.empty {
