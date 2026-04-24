@@ -78,8 +78,8 @@ npm install
 npm run dev
 ```
 
-Client defaults to connecting to http://localhost:3000.
-Override with `VITE_SERVER_URL` if needed.
+Client defaults to same-origin in hosted environments.
+For local split-origin dev, override with `VITE_SERVER_URL` (for example `http://localhost:3000`).
 
 For local dev, if frontend and backend run on different origins, set `VITE_SERVER_URL`.
 For Render single-service deployment, leave this unset so same-origin is used.

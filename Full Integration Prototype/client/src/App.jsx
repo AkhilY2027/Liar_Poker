@@ -9,7 +9,7 @@ import RoundResultPopup from "./components/RoundResultPopup";
 import { cardImageName, cardLabel, formatHand } from "./handUtils";
 import { useGameSocket } from "./hooks/useGameSocket";
 
-const SERVER_URL = import.meta.env.VITE_SERVER_URL || "http://localhost:3000";
+const SERVER_URL = import.meta.env.VITE_SERVER_URL || window.location.origin;
 
 function App() {
   const [playerName] = useState(() => `Player-${Math.floor(Math.random() * 900 + 100)}`);
