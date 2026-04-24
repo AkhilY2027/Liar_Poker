@@ -11,7 +11,7 @@ npm ci
 
 echo "[render-build] Installing client dependencies..."
 cd "$CLIENT_DIR"
-npm ci
+npm ci --include=dev
 
 echo "[render-build] Building client..."
 npm run build

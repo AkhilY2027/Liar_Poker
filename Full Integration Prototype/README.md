@@ -30,7 +30,7 @@ From `Full Integration Prototype/`:
 
 - `render-build.sh`:
 	- installs `server` deps
-	- installs `client` deps
+	- installs `client` deps (including dev deps for Vite build)
 	- builds client (`client/dist`)
 - `render-start.sh`:
 	- starts server (`server/src/index.js`)
@@ -58,6 +58,7 @@ From `Full Integration Prototype/`:
 - Do not hardcode a frontend API URL for production in this setup.
 - The browser should connect back to the same origin as the served app.
 - Health check endpoint is available at `/health`.
+- If `NODE_ENV=production` is set on Render, `render-build.sh` still installs client dev deps so `vite build` is available.
 
 ## Start Both (Quick Dev)
 
