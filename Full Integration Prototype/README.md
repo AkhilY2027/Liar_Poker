@@ -81,7 +81,10 @@ npm run dev
 Client defaults to same-origin in hosted environments.
 For local split-origin dev, override with `VITE_SERVER_URL` (for example `http://localhost:3000`).
 
-For local dev, if frontend and backend run on different origins, set `VITE_SERVER_URL`.
+For local dev, the Vite config proxies `/socket.io`, `/card_deck_images`, and `/health` to `http://localhost:3000` by default, so no env var is required.
+If your backend runs on a different local URL, set `VITE_DEV_PROXY_TARGET` before `npm run dev`.
+
+For local dev, if frontend and backend run on different origins and you prefer direct calls, set `VITE_SERVER_URL`.
 For Render single-service deployment, leave this unset so same-origin is used.
 
 ## Required WebSocket Events

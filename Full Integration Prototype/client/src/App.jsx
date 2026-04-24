@@ -8,8 +8,9 @@ import MyHand from "./components/MyHand";
 import RoundResultPopup from "./components/RoundResultPopup";
 import { cardImageName, cardLabel, formatHand } from "./handUtils";
 import { useGameSocket } from "./hooks/useGameSocket";
+import { resolveAssetBasePath } from "./network/backendUrl";
 
-const SERVER_URL = import.meta.env.VITE_SERVER_URL || window.location.origin;
+const ASSET_BASE = resolveAssetBasePath();
 
 function App() {
   const [playerName] = useState(() => `Player-${Math.floor(Math.random() * 900 + 100)}`);
@@ -220,7 +221,7 @@ function App() {
                                 const isWinningCard = winningCardKeys.has(cardKey);
                                 return (
                                   <span className={isWinningCard ? "seatCard reveal winningBid" : "seatCard reveal"} key={`${player.id}-${cardKey}-${i}`}>
-                                    <img src={`${SERVER_URL}/card_deck_images/${cardImageName(card)}`} alt={cardLabel(card)} />
+                                    <img src={`${ASSET_BASE}/card_deck_images/${cardImageName(card)}`} alt={cardLabel(card)} />
                                   </span>
                                 );
                               })
@@ -270,7 +271,7 @@ function App() {
                                 const isWinningCard = winningCardKeys.has(cardKey);
                                 return (
                                   <span className={isWinningCard ? "seatCard reveal winningBid" : "seatCard reveal"} key={`${player.id}-${cardKey}-${i}`}>
-                                    <img src={`${SERVER_URL}/card_deck_images/${cardImageName(card)}`} alt={cardLabel(card)} />
+                                    <img src={`${ASSET_BASE}/card_deck_images/${cardImageName(card)}`} alt={cardLabel(card)} />
                                   </span>
                                 );
                               })
