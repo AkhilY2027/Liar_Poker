@@ -1,28 +1,57 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 
-function RoundResultPopup({ roundResult }) {
+function RoundResultPopup({ roundResult, errorMessage, errorCode }) {
   const [nowMs, setNowMs] = useState(Date.now());
+  const [errorUntilMs, setErrorUntilMs] = useState(0);
+  const lastErrorKeyRef = useRef("");
 
   useEffect(() => {
     const id = setInterval(() => setNowMs(Date.now()), 100);
     return () => clearInterval(id);
   }, []);
 
-  const visible = useMemo(() => {
-    if (!roundResult || !roundResult.showUntilMs) {
-      return false;
+  useEffect(() => {
+    if (!errorMessage) {
+      lastErrorKeyRef.current = "";
+      setErrorUntilMs(0);
+      return;
     }
-    return nowMs < roundResult.showUntilMs;
-  }, [nowMs, roundResult]);
 
-  if (!visible) {
+    const nextErrorKey = `${errorCode || ""}:${errorMessage}`;
+    if (lastErrorKeyRef.current !== nextErrorKey) {
+      lastErrorKeyRef.current = nextErrorKey;
+      setErrorUntilMs(Date.now() + 5000);
+    }
+  }, [errorCode, errorMessage]);
+
+  const payload = useMemo(() => {
+    if (errorMessage && nowMs < errorUntilMs) {
+      return {
+        title: "Action Error",
+        message: errorCode ? `[${errorCode}] ${errorMessage}` : errorMessage,
+        isError: true,
+      };
+    }
+
+    if (!roundResult || !roundResult.showUntilMs || nowMs >= roundResult.showUntilMs) {
+      return null;
+    }
+
+    return {
+      title: "Round Result",
+      message: roundResult.message,
+      isError: false,
+    };
+  }, [errorCode, errorMessage, nowMs, roundResult]);
+
+  if (!payload) {
     return null;
   }
 
   return (
-    <div className="roundResultPopup" role="status" aria-live="polite">
-      <p className="roundResultTitle">Round Result</p>
-      <p className="roundResultMessage">{roundResult.message}</p>
+    <div className={`roundResultPopup ${payload.isError ? "error" : ""}`} role="status" aria-live="polite">
+      <p className="roundResultTitle">{payload.title}</p>
+      <p className="roundResultMessage">{payload.message}</p>
     </div>
   );
 }

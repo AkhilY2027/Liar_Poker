@@ -17,7 +17,7 @@ function App() {
   const [screen, setScreen] = useState("table");
   const [settingsTab, setSettingsTab] = useState("play");
   const [nowMs, setNowMs] = useState(Date.now());
-  const { game, connected, error, socketId, role, placeBid, callLiar, resetGame, setDisplayName, updateGameSettings, resetAllCards } =
+  const { game, connected, error, errorCode, socketId, role, placeBid, callLiar, resetGame, setDisplayName, updateGameSettings, resetAllCards } =
     useGameSocket(playerName);
 
   const players = useMemo(() => game.players || [], [game.players]);
@@ -176,7 +176,6 @@ function App() {
                   <ConnectionPanel
                     connected={connected}
                     playerName={playerName}
-                    error={error}
                     role={roleLabel}
                     assignedPlayerName={displayedPlayerName}
                   />
@@ -309,7 +308,7 @@ function App() {
         </>
       )}
 
-      <RoundResultPopup roundResult={game.roundResult} />
+      <RoundResultPopup roundResult={game.roundResult} errorMessage={error} errorCode={errorCode} />
     </main>
   );
 }

@@ -1,6 +1,6 @@
 import React from "react";
 
-function ConnectionPanel({ connected, playerName, error, role, assignedPlayerName }) {
+function ConnectionPanel({ connected, playerName, role, assignedPlayerName }) {
   const roleText = role === "player" ? `Player (${assignedPlayerName || "Unassigned"})` : "Viewer";
 
   return (
@@ -13,7 +13,7 @@ function ConnectionPanel({ connected, playerName, error, role, assignedPlayerNam
         Role: <strong>{roleText}</strong>
       </p>
       <p className={connected ? "ok" : "warn"}>{connected ? "Connected" : "Disconnected"}</p>
-      {error ? <p className="error">{error}</p> : <p className="muted">Server is authoritative for all rules.</p>}
+      <p className="muted">Server is authoritative for all rules.</p>
     </section>
   );
 }

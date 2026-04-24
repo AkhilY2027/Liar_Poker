@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createSocketClient } from "../network/socketClient";
 import protocol from "../../../shared/socketProtocol.json";
 
@@ -24,6 +24,7 @@ export function useGameSocket(playerName) {
   const [connected, setConnected] = useState(false);
   const [error, setError] = useState("");
   const [errorCode, setErrorCode] = useState("");
+  const errorClearTimerRef = useRef(null);
   const [socketId, setSocketId] = useState(null);
   const [role, setRole] = useState("viewer");
   const [gameId, setGameId] = useState("main-room");
@@ -38,6 +39,10 @@ export function useGameSocket(playerName) {
       setRole("viewer");
       setError("");
       setErrorCode("");
+      if (errorClearTimerRef.current) {
+        clearTimeout(errorClearTimerRef.current);
+        errorClearTimerRef.current = null;
+      }
       client.emit(EVENT.joinGame, { name: playerName });
     });
 
@@ -50,6 +55,10 @@ export function useGameSocket(playerName) {
     client.on(EVENT.connectionReady, () => {
       setError("");
       setErrorCode("");
+      if (errorClearTimerRef.current) {
+        clearTimeout(errorClearTimerRef.current);
+        errorClearTimerRef.current = null;
+      }
     });
 
     client.on(EVENT.gameCreated, ({ gameId: createdGameId } = {}) => {
@@ -68,13 +77,19 @@ export function useGameSocket(playerName) {
       if (state?.role === "player" || state?.role === "viewer") {
         setRole(state.role);
       }
-      setError("");
-      setErrorCode("");
     });
 
     client.on(EVENT.invalidMove, ({ message, code } = {}) => {
       setError(message || "Invalid move");
       setErrorCode(code || "");
+      if (errorClearTimerRef.current) {
+        clearTimeout(errorClearTimerRef.current);
+      }
+      errorClearTimerRef.current = setTimeout(() => {
+        setError("");
+        setErrorCode("");
+        errorClearTimerRef.current = null;
+      }, 5000);
     });
 
     client.on(EVENT.roleUpdate, ({ role: nextRole } = {}) => {
@@ -84,6 +99,10 @@ export function useGameSocket(playerName) {
     });
 
     return () => {
+      if (errorClearTimerRef.current) {
+        clearTimeout(errorClearTimerRef.current);
+        errorClearTimerRef.current = null;
+      }
       client.disconnect();
       setSocket(null);
     };
@@ -140,6 +159,10 @@ export function useGameSocket(playerName) {
         socket.emit(EVENT.joinGame, { name: playerName, gameId: nextGameId });
       },
       clearError() {
+        if (errorClearTimerRef.current) {
+          clearTimeout(errorClearTimerRef.current);
+          errorClearTimerRef.current = null;
+        }
         setError("");
         setErrorCode("");
       },

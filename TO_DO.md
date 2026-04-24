@@ -3,13 +3,10 @@
 - Perhaps convert it to C/C++
 - https://render.com/docs/web-services
 
-14. Need to have error codes appear in the same text box as the victory text box
-
 Other Notes:
 - Apparently have a functionality for multiple games to be played (create_game, game_created at socketServer:47)
 
-Bugs:
-- 
+## Bugs:
 - Make the borders on victory screen more legible (Both the borders around the player cards and the cards for winning hands)
 - If "loser" of liar game gets more than max cards, then they may not be pushed to be a viewer (letting other viewers have their turn)
 	Looking at behavior, loser just gets reset to three – not necessarily becoming viewer if someone is in waiting room
@@ -61,3 +58,4 @@ Bug: invalid_move is emitted for both validation errors and lock/contention case
 Bug: "Folding" – If a player auto-folds to another player, that player is now treated as owner as current bid
 	Basically, if we auto-fold for a long time, then current bid is just attributed to previous player regardless of if they actually made that bid
 Bug: If we have more cards than 6, then when current player's turn, shrinked view of board will not display the many face-down cards of other players properly
+14. Need to have error codes appear in the same text box as the victory text box
