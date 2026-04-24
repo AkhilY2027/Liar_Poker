@@ -1,4 +1,11 @@
+const assert = require("node:assert/strict");
 const { io } = require("socket.io-client");
+const {
+  createGame,
+  addOrReconnectPlayer,
+  normalizeHand,
+  isBidAchievableFromActiveHands,
+} = require("./gameLogic");
 
 const SERVER_URL = process.env.LOAD_SERVER_URL || "http://localhost:3000";
 const LOAD_GAMES = Number(process.env.LOAD_GAMES || 3);
@@ -19,7 +26,66 @@ function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function createTestGameWithCards(playerCards) {
+  const game = createGame("rules-test-room");
+  playerCards.forEach((cards, index) => {
+    const player = addOrReconnectPlayer(game, {
+      id: `p-${index + 1}`,
+      name: `Player ${index + 1}`,
+      displayName: `Player ${index + 1}`,
+      cardTarget: cards.length,
+    });
+    player.active = true;
+    player.cards = cards;
+  });
+  return game;
+}
+
+function runRuleRegressionChecks() {
+  // Straight minimum should be 5-high.
+  assert.throws(
+    () => normalizeHand({ type: "STRAIGHT", primaryRanks: [4], suit: null }),
+    /at least 5-high/
+  );
+
+  // Wheel straight (A-2-3-4-5) should be valid.
+  const wheelBid = normalizeHand({ type: "STRAIGHT", primaryRanks: [5], suit: null });
+  const wheelGame = createTestGameWithCards([
+    [
+      { rank: 14, suit: "SPADES" },
+      { rank: 5, suit: "HEARTS" },
+      { rank: 4, suit: "CLUBS" },
+      { rank: 3, suit: "DIAMONDS" },
+      { rank: 2, suit: "SPADES" },
+    ],
+  ]);
+  assert.equal(isBidAchievableFromActiveHands(wheelGame, wheelBid), true);
+
+  // Flush highs that cannot be completed by lower suited cards should be rejected.
+  assert.throws(
+    () => normalizeHand({ type: "FLUSH", primaryRanks: [2], suit: "HEARTS" }),
+    /cannot be completed/
+  );
+
+  // Valid flush highs should still pass and be achievable when cards exist.
+  const validFlushBid = normalizeHand({ type: "FLUSH", primaryRanks: [10, 8, 6], suit: "HEARTS" });
+  const flushGame = createTestGameWithCards([
+    [
+      { rank: 10, suit: "HEARTS" },
+      { rank: 8, suit: "HEARTS" },
+      { rank: 6, suit: "HEARTS" },
+      { rank: 5, suit: "HEARTS" },
+      { rank: 2, suit: "HEARTS" },
+    ],
+  ]);
+  assert.equal(isBidAchievableFromActiveHands(flushGame, validFlushBid), true);
+
+  console.info("[load-test] rule regression checks passed");
+}
+
 async function run() {
+  runRuleRegressionChecks();
+
   console.info("[load-test] starting", {
     SERVER_URL,
     LOAD_GAMES,

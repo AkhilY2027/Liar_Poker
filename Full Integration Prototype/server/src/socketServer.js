@@ -651,10 +651,12 @@ function buildBidLadder() {
     candidates.push(normalizeHand({ type: "HIGH_CARD", primaryRanks: [rank] }));
     candidates.push(normalizeHand({ type: "PAIR", primaryRanks: [rank] }));
     candidates.push(normalizeHand({ type: "THREE_OF_A_KIND", primaryRanks: [rank] }));
-    candidates.push(normalizeHand({ type: "FLUSH", primaryRanks: [rank], suit: "CLUBS" }));
+    if (rank >= 6) {
+      candidates.push(normalizeHand({ type: "FLUSH", primaryRanks: [rank], suit: "CLUBS" }));
+    }
   }
 
-  for (let rank = 4; rank <= 14; rank += 1) {
+  for (let rank = 5; rank <= 14; rank += 1) {
     candidates.push(normalizeHand({ type: "STRAIGHT", primaryRanks: [rank] }));
     candidates.push(normalizeHand({ type: "STRAIGHT_FLUSH", primaryRanks: [rank], suit: "CLUBS" }));
   }

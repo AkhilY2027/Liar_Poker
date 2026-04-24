@@ -12,9 +12,30 @@ import {
 
 const RANKS = Array.from({ length: 13 }, (_, i) => i + 2);
 
+function isFlushSelectionCompletable(ranks) {
+  if (!Array.isArray(ranks) || !ranks.length) {
+    return false;
+  }
+
+  const normalized = ranks.map((rank) => Number(rank));
+  if (normalized.some((rank) => !Number.isInteger(rank) || rank < 2 || rank > 14)) {
+    return false;
+  }
+
+  const unique = new Set(normalized);
+  if (unique.size !== normalized.length) {
+    return false;
+  }
+
+  const lowestDeclared = Math.min(...normalized);
+  const neededLowerCards = 5 - normalized.length;
+  const availableLowerCards = Math.max(0, lowestDeclared - 2);
+  return availableLowerCards >= neededLowerCards;
+}
+
 function rankOptionsForType(type) {
   if (type === "STRAIGHT" || type === "STRAIGHT_FLUSH") {
-    return RANKS.filter((rank) => rank >= 4);
+    return RANKS.filter((rank) => rank >= 5);
   }
   return RANKS;
 }
@@ -68,11 +89,11 @@ function ActionPanel({
     }
 
     setPrimaryRanks((prev) => {
-      if (!prev.length || prev[0] >= 4) {
+      if (!prev.length || prev[0] >= 5) {
         return prev;
       }
       const next = [...prev];
-      next[0] = 4;
+      next[0] = 5;
       return next;
     });
   }, [type]);
@@ -116,6 +137,22 @@ function ActionPanel({
     return compareHandsSimple(draftBid, currentBid) <= 0;
   }, [currentBid, draftBid]);
 
+  const hasInvalidShape = useMemo(() => {
+    if (!draftBid) {
+      return false;
+    }
+
+    if ((draftBid.type === "STRAIGHT" || draftBid.type === "STRAIGHT_FLUSH") && Number(draftBid.primaryRanks[0]) < 5) {
+      return true;
+    }
+
+    if (draftBid.type === "FLUSH") {
+      return !isFlushSelectionCompletable(draftBid.primaryRanks);
+    }
+
+    return false;
+  }, [draftBid]);
+
   const canAddRank = useMemo(() => {
     if (!spec || spec.mode !== "variable" || primaryRanks.length >= spec.max) {
       return false;
@@ -131,6 +168,9 @@ function ActionPanel({
         primaryRanks: [...primaryRanks, candidateRank],
         suit: needsSuit(type) ? suit : null,
       };
+      if (type === "FLUSH" && !isFlushSelectionCompletable(nextDraft.primaryRanks)) {
+        return false;
+      }
       return compareHandsSimple(nextDraft, currentBid) > 0;
     });
   }, [currentBid, primaryRanks, spec, suit, type]);
@@ -138,11 +178,19 @@ function ActionPanel({
   const submitText = type ? submitLabel : "Bid a hand";
 
   function isRankOptionDisabled(index, value) {
-    if (!type || !currentBid) {
+    if (!type) {
       return false;
     }
 
     const nextRanks = primaryRanks.map((rank, i) => (i === index ? Number(value) : rank));
+    if (type === "FLUSH" && !isFlushSelectionCompletable(nextRanks)) {
+      return true;
+    }
+
+    if (!currentBid) {
+      return false;
+    }
+
     const nextDraft = {
       type,
       primaryRanks: nextRanks,
@@ -177,7 +225,7 @@ function ActionPanel({
 
   function submit(event) {
     event.preventDefault();
-    if (!draftBid || isLowerOrEqualBid) {
+    if (!draftBid || isLowerOrEqualBid || hasInvalidShape) {
       return;
     }
     onPlaceBid(draftBid);
@@ -245,7 +293,7 @@ function ActionPanel({
         ) : null}
 
         <div className="buttonRow">
-          <button type="submit" disabled={!isMyTurn || !draftBid || isLowerOrEqualBid}>
+          <button type="submit" disabled={!isMyTurn || !draftBid || isLowerOrEqualBid || hasInvalidShape}>
             {submitText}
           </button>
           {showCallButton ? (
@@ -255,6 +303,9 @@ function ActionPanel({
           ) : null}
         </div>
         {isLowerOrEqualBid ? <p className="error">Bid must be strictly higher than the current bid.</p> : null}
+        {hasInvalidShape && draftBid?.type === "FLUSH" ? (
+          <p className="error">Selected flush highs cannot be completed to a 5-card flush.</p>
+        ) : null}
       </form>
     </section>
   );

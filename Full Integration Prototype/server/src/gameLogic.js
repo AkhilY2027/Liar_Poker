@@ -288,8 +288,8 @@ function validateHand(hand) {
     throw new Error(`${hand.type} requires exactly 1 rank`);
   }
 
-  if ((hand.type === "STRAIGHT" || hand.type === "STRAIGHT_FLUSH") && hand.primaryRanks[0] < 4) {
-    throw new Error(`${hand.type} must be at least 4-high`);
+  if ((hand.type === "STRAIGHT" || hand.type === "STRAIGHT_FLUSH") && hand.primaryRanks[0] < 5) {
+    throw new Error(`${hand.type} must be at least 5-high`);
   }
 
   if (hand.type === "PAIR" && hand.primaryRanks.length !== 1) {
@@ -298,6 +298,24 @@ function validateHand(hand) {
 
   if ((hand.type === "FLUSH" || hand.type === "STRAIGHT_FLUSH") && !hand.suit) {
     throw new Error("Flush-based bids require a suit");
+  }
+
+  if (hand.type === "FLUSH") {
+    if (hand.primaryRanks.length < 1 || hand.primaryRanks.length > 5) {
+      throw new Error("FLUSH requires between 1 and 5 ranks");
+    }
+
+    const uniqueFlushRanks = new Set(hand.primaryRanks);
+    if (uniqueFlushRanks.size !== hand.primaryRanks.length) {
+      throw new Error("FLUSH ranks must be distinct");
+    }
+
+    const lowestDeclared = Math.min(...hand.primaryRanks);
+    const neededLowerCards = 5 - hand.primaryRanks.length;
+    const availableLowerCards = Math.max(0, lowestDeclared - 2);
+    if (availableLowerCards < neededLowerCards) {
+      throw new Error("FLUSH declared highs cannot be completed with lower suited cards");
+    }
   }
 
   if (!(hand.type === "FLUSH" || hand.type === "STRAIGHT_FLUSH") && hand.suit) {
@@ -324,6 +342,7 @@ function compareHands(a, b, compareSuit = false) {
     return a.primaryRanks.length > b.primaryRanks.length ? 1 : -1;
   }
 
+  // Shouldn't ever come to this, but keeping for completeness
   if (compareSuit) {
     const suitA = SUIT_ORDER[a.suit] || 0;
     const suitB = SUIT_ORDER[b.suit] || 0;
@@ -449,7 +468,17 @@ function isBidAchievableFromActiveHands(game, bid) {
       return false;
     }
 
-    return bid.primaryRanks.every((rank) => suited.includes(rank));
+    const suitedSet = new Set(suited);
+    for (const rank of bid.primaryRanks) {
+      if (!suitedSet.has(rank)) {
+        return false;
+      }
+    }
+
+    const lowestDeclared = bid.primaryRanks[bid.primaryRanks.length - 1];
+    const neededLowerCards = 5 - bid.primaryRanks.length;
+    const lowerSuitedCount = suited.filter((rank) => rank < lowestDeclared).length;
+    return lowerSuitedCount >= neededLowerCards;
   }
   if (bid.type === "STRAIGHT_FLUSH") {
     const suited = suitToRanks.get(bid.suit) || [];
@@ -507,7 +536,7 @@ function findBidHighlightCards(game, bid) {
     const pair = rankToCards.get(b) || [];
     selected.push(...trips.slice(0, 3), ...pair.slice(0, 2));
   } else if (bid.type === "STRAIGHT") {
-    const needed = [a, a - 1, a - 2];
+    const needed = straightRanksFromHigh(a);
     for (const rank of needed) {
       const bucket = rankToCards.get(rank) || [];
       if (bucket.length) {
@@ -526,7 +555,7 @@ function findBidHighlightCards(game, bid) {
     selected.push(...chosen);
   } else if (bid.type === "STRAIGHT_FLUSH") {
     const suited = suitToCards.get(bid.suit) || [];
-    const needed = [a, a - 1, a - 2];
+    const needed = straightRanksFromHigh(a);
     for (const rank of needed) {
       const match = suited.find((card) => card.rank === rank);
       if (match) {
@@ -546,13 +575,25 @@ function cardKey(card) {
 }
 
 function hasStraight(ranks, highRank) {
-  const needed = [highRank, highRank - 1, highRank - 2];
-  if (needed.some((rank) => rank < 2)) {
+  const needed = straightRanksFromHigh(highRank);
+  if (!needed.length) {
     return false;
   }
 
   const set = new Set(ranks);
   return needed.every((rank) => set.has(rank));
+}
+
+function straightRanksFromHigh(highRank) {
+  if (!Number.isInteger(highRank) || highRank < 5 || highRank > 14) {
+    return [];
+  }
+
+  if (highRank === 5) {
+    return [5, 4, 3, 2, 14];
+  }
+
+  return [highRank, highRank - 1, highRank - 2, highRank - 3, highRank - 4];
 }
 
 module.exports = {
