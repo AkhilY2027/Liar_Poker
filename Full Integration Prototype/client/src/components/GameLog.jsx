@@ -2,9 +2,9 @@ import React from "react";
 
 function GameLog({ entries }) {
   return (
-    <section className="card">
+    <section className="card gameLogCard">
       <h2>Game Log</h2>
-      <ul className="logList">
+      <ul className="logList gameLogList">
         {entries.length ? (
           entries.map((entry) => <li key={entry.id}>{entry.message}</li>)
         ) : (

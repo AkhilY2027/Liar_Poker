@@ -5,7 +5,6 @@ import GameSettingsPanel from "./components/GameSettingsPanel";
 import GameLog from "./components/GameLog";
 import GameTable from "./components/GameTable";
 import MyHand from "./components/MyHand";
-import PlayerSettingsPanel from "./components/PlayerSettingsPanel";
 import RoundResultPopup from "./components/RoundResultPopup";
 import { cardImageName, cardLabel, formatHand } from "./handUtils";
 import { useGameSocket } from "./hooks/useGameSocket";
@@ -65,8 +64,14 @@ function App() {
       turnTimeoutSeconds: Number(game?.settings?.turnTimeoutSeconds || 60),
       maxCardsToLose: Number(game?.settings?.maxCardsToLose || 6),
       autoFoldBehavior: String(game?.settings?.autoFoldBehavior || "next_highest"),
+      maxCardsLoserBehavior: String(game?.settings?.maxCardsLoserBehavior || "rejoin_if_open_seat"),
     }),
-    [game?.settings?.autoFoldBehavior, game?.settings?.maxCardsToLose, game?.settings?.turnTimeoutSeconds]
+    [
+      game?.settings?.autoFoldBehavior,
+      game?.settings?.maxCardsLoserBehavior,
+      game?.settings?.maxCardsToLose,
+      game?.settings?.turnTimeoutSeconds,
+    ]
   );
 
   const displayedPlayerName = useMemo(() => {
@@ -143,14 +148,14 @@ function App() {
               type="button"
               onClick={() => setSettingsTab("play")}
             >
-              Play Now
+              Connection Settings
             </button>
             <button
-              className={`settingsNavBtn ${settingsTab === "private" ? "active" : ""}`}
+              className={`settingsNavBtn ${settingsTab === "game" ? "active" : ""}`}
               type="button"
-              onClick={() => setSettingsTab("private")}
+              onClick={() => setSettingsTab("game")}
             >
-              Private Rooms
+              Game Settings
             </button>
             <button
               className={`settingsNavBtn ${settingsTab === "history" ? "active" : ""}`}
@@ -160,32 +165,23 @@ function App() {
               Hand History
             </button>
             <button
-              className={`settingsNavBtn ${settingsTab === "game" ? "active" : ""}`}
+              className={`settingsNavBtn ${settingsTab === "private" ? "active" : ""}`}
               type="button"
-              onClick={() => setSettingsTab("game")}
+              onClick={() => setSettingsTab("private")}
             >
-              Game Settings
+              Private Rooms
             </button>
           </aside>
 
           <div className="settingsContent">
             <h2>Salon Preferences</h2>
             <div className="settingsGrid">
-              {settingsTab !== "history" ? (
-                <>
-                  <ConnectionPanel
-                    connected={connected}
-                    playerName={playerName}
-                    role={roleLabel}
-                    assignedPlayerName={displayedPlayerName}
-                  />
-                  <GameTable players={players} currentTurn={game.currentTurn} myPlayerId={socketId} />
-                </>
-              ) : null}
-
-              {settingsTab === "history" ? <GameLog entries={game.log || []} /> : null}
               {settingsTab === "play" ? (
-                <PlayerSettingsPanel
+                <ConnectionPanel
+                  connected={connected}
+                  playerName={playerName}
+                  role={roleLabel}
+                  assignedPlayerName={displayedPlayerName}
                   currentDisplayName={displayedPlayerName}
                   onSaveDisplayName={setDisplayName}
                   disabled={!connected}
@@ -200,6 +196,10 @@ function App() {
                   onResetAllCards={resetAllCards}
                 />
               ) : null}
+
+              {settingsTab === "history" ? <GameLog entries={game.log || []} /> : null}
+
+              {settingsTab === "private" ? <GameTable players={players} currentTurn={game.currentTurn} myPlayerId={socketId} /> : null}
             </div>
           </div>
         </section>

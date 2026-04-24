@@ -151,7 +151,8 @@ function registerSocketHandlers(io) {
         const didChange =
           currentSettings.turnTimeoutSeconds !== nextSettings.turnTimeoutSeconds ||
           currentSettings.maxCardsToLose !== nextSettings.maxCardsToLose ||
-          currentSettings.autoFoldBehavior !== nextSettings.autoFoldBehavior;
+          currentSettings.autoFoldBehavior !== nextSettings.autoFoldBehavior ||
+          currentSettings.maxCardsLoserBehavior !== nextSettings.maxCardsLoserBehavior;
 
         if (!didChange) {
           return;
@@ -165,7 +166,7 @@ function registerSocketHandlers(io) {
 
         appendLog(
           game,
-          `Game settings updated: timeout ${nextSettings.turnTimeoutSeconds}s, max cards ${nextSettings.maxCardsToLose}. Round reset.`
+          `Game settings updated: timeout ${nextSettings.turnTimeoutSeconds}s, max cards ${nextSettings.maxCardsToLose}, max-card loser behavior ${nextSettings.maxCardsLoserBehavior}. Round reset.`
         );
         logInfo("update_game_settings", {
           roomId: game.id,
@@ -552,7 +553,9 @@ function resetRoundAndRefill(io, game, options = {}) {
   removeInactivePlayers(game);
 
   if (options.promoteViewers !== false) {
-    promoted = promoteViewers(io, game);
+    promoted = promoteViewers(io, game, {
+      excludeViewerIds: options.excludeViewerIds || [],
+    });
   }
 
   resetRound(game);
@@ -695,16 +698,27 @@ function removeInactivePlayers(game) {
   game.players = game.players.filter((player) => player.active);
 }
 
-function promoteViewers(io, game) {
+function promoteViewers(io, game, options = {}) {
   if (!Array.isArray(game.viewers) || !game.viewers.length) {
     return 0;
   }
 
+  const excludedIds = new Set(Array.isArray(options.excludeViewerIds) ? options.excludeViewerIds : []);
+  const originalQueueLength = game.viewers.length;
+
   let promoted = 0;
-  while (getActivePlayers(game).length < MAX_PLAYERS && game.viewers.length) {
+  let scanned = 0;
+
+  while (getActivePlayers(game).length < MAX_PLAYERS && game.viewers.length && scanned < originalQueueLength) {
     const nextViewer = game.viewers.shift();
     if (!nextViewer) {
       break;
+    }
+    scanned += 1;
+
+    if (excludedIds.has(nextViewer.id)) {
+      game.viewers.push(nextViewer);
+      continue;
     }
 
     const viewerSocket = io.sockets.sockets.get(nextViewer.id);
@@ -799,19 +813,37 @@ function finalizeRevealPhase(io, game, loserId) {
   clearRevealTimer(game.id);
 
   const loser = game.players.find((player) => player.id === loserId);
+  let excludeViewerIds = [];
   if (loser) {
     loser.cardTarget = Number(loser.cardTarget || 3) + 1;
     const maxCardsToLose = Number(game.settings?.maxCardsToLose || DEFAULT_MAX_CARDS_TO_LOSE);
     if (loser.cardTarget >= maxCardsToLose) {
       loser.cardTarget = 3;
-      appendLog(game, `${playerDisplayName(loser)} reached the ${maxCardsToLose}th card and resets to 3 cards.`);
+      markPlayerInactive(game, loser.id);
+      addViewer(game, { id: loser.id, name: playerDisplayName(loser) });
+
+      const loserSocket = io.sockets.sockets.get(loser.id);
+      if (loserSocket) {
+        loserSocket.data.role = "viewer";
+        loserSocket.emit(EVENT.roleUpdate, { role: "viewer", reason: "max_cards_reached" });
+      }
+
+      const loserBehavior = String(game.settings?.maxCardsLoserBehavior || "rejoin_if_open_seat").toLowerCase();
+      if (loserBehavior === "force_viewer_next_round") {
+        excludeViewerIds = [loser.id];
+      }
+
+      appendLog(
+        game,
+        `${playerDisplayName(loser)} reached the ${maxCardsToLose}th card, was moved to viewer, and reset to 3 cards.`
+      );
     } else {
       appendLog(game, `${playerDisplayName(loser)} now has ${loser.cardTarget} cards for the next round.`);
     }
   }
 
   game.roundResult = null;
-  resetRoundAndRefill(io, game);
+  resetRoundAndRefill(io, game, { excludeViewerIds });
   scheduleTurnTimer(io, game);
   broadcastGame(io, game.id);
 }
@@ -873,6 +905,7 @@ function defaultGameSettings() {
       turnTimeoutSeconds: DEFAULT_TURN_TIMEOUT_SECONDS,
       maxCardsToLose: DEFAULT_MAX_CARDS_TO_LOSE,
       autoFoldBehavior: DEFAULT_AUTO_FOLD_BEHAVIOR,
+      maxCardsLoserBehavior: DEFAULT_GAME_SETTINGS.maxCardsLoserBehavior,
     },
     DEFAULT_GAME_SETTINGS
   );

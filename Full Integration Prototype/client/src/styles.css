@@ -445,6 +445,7 @@ body {
 .settingsContent {
   padding: 1rem;
   overflow: hidden;
+  min-height: 0;
 }
 
 .settingsContent h2 {
@@ -458,6 +459,7 @@ body {
   gap: 0.9rem;
   max-height: calc(100vh - 150px);
   overflow: hidden;
+  min-height: 0;
 }
 
 @media (min-width: 1500px) {
@@ -505,6 +507,27 @@ body {
   padding: 0;
   display: grid;
   gap: 0.45rem;
+}
+
+.gameLogCard {
+  max-height: calc(100vh - 190px);
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.gameLogList {
+  margin-top: 0.25rem;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 0.35rem;
+}
+
+.gameLogList li {
+  border: 1px solid #324050;
+  border-radius: 8px;
+  padding: 0.5rem 0.62rem;
+  background: rgba(13, 21, 28, 0.72);
 }
 
 .row {

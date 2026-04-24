@@ -15,10 +15,22 @@ const AUTO_FOLD_OPTIONS = [
   },
 ];
 
+const MAX_CARD_LOSER_OPTIONS = [
+  {
+    value: "rejoin_if_open_seat",
+    label: "Default: Rejoin if a seat is open after elimination",
+  },
+  {
+    value: "force_viewer_next_round",
+    label: "Force viewer for next round (sit out at least one round)",
+  },
+];
+
 function GameSettingsPanel({ settings, onUpdateSettings, onResetAllCards, disabled }) {
   const turnTimeoutSeconds = Number(settings?.turnTimeoutSeconds || 60);
   const maxCardsToLose = Number(settings?.maxCardsToLose || 6);
   const autoFoldBehavior = String(settings?.autoFoldBehavior || "next_highest");
+  const maxCardsLoserBehavior = String(settings?.maxCardsLoserBehavior || "rejoin_if_open_seat");
   const [showResetConfirmation, setShowResetConfirmation] = useState(false);
 
   function update(partial) {
@@ -86,6 +98,25 @@ function GameSettingsPanel({ settings, onUpdateSettings, onResetAllCards, disabl
             disabled={disabled}
           >
             {AUTO_FOLD_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label>
+          Max-Card Loser Behavior
+          <select
+            value={maxCardsLoserBehavior}
+            onChange={(event) =>
+              update({
+                maxCardsLoserBehavior: event.target.value,
+              })
+            }
+            disabled={disabled}
+          >
+            {MAX_CARD_LOSER_OPTIONS.map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}
               </option>

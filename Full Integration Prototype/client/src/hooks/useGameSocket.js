@@ -19,6 +19,7 @@ export function useGameSocket(playerName) {
       turnTimeoutSeconds: 60,
       maxCardsToLose: 6,
       autoFoldBehavior: "next_highest",
+      maxCardsLoserBehavior: "rejoin_if_open_seat",
     },
   });
   const [connected, setConnected] = useState(false);

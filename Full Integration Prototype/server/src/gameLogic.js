@@ -21,9 +21,11 @@ const DEFAULT_GAME_SETTINGS = Object.freeze({
   turnTimeoutSeconds: 60,
   maxCardsToLose: 6,
   autoFoldBehavior: "next_highest",
+  maxCardsLoserBehavior: "rejoin_if_open_seat",
 });
 
 const TIMEOUT_BEHAVIOR_VALUES = new Set(["next_highest", "kick_and_reset_round", "auto_fold"]);
+const MAX_CARDS_LOSER_BEHAVIOR_VALUES = new Set(["rejoin_if_open_seat", "force_viewer_next_round"]);
 
 function createGame(id = "main-room", settings = null) {
   const normalizedSettings = normalizeGameSettings(settings, DEFAULT_GAME_SETTINGS);
@@ -101,10 +103,23 @@ function normalizeGameSettings(settings, currentSettings = DEFAULT_GAME_SETTINGS
     ? normalizedRequested
     : (normalizedRequested === "none" ? "next_highest" : normalizedFallback);
 
+  const rawLoserBehavior = typeof source.maxCardsLoserBehavior === "string" ? source.maxCardsLoserBehavior.trim() : "";
+  const fallbackLoserBehavior = String(base.maxCardsLoserBehavior || DEFAULT_GAME_SETTINGS.maxCardsLoserBehavior || "rejoin_if_open_seat")
+    .trim()
+    .toLowerCase();
+  const normalizedLoserFallback = MAX_CARDS_LOSER_BEHAVIOR_VALUES.has(fallbackLoserBehavior)
+    ? fallbackLoserBehavior
+    : "rejoin_if_open_seat";
+  const normalizedLoserRequested = rawLoserBehavior.toLowerCase();
+  const maxCardsLoserBehavior = MAX_CARDS_LOSER_BEHAVIOR_VALUES.has(normalizedLoserRequested)
+    ? normalizedLoserRequested
+    : normalizedLoserFallback;
+
   return {
     turnTimeoutSeconds,
     maxCardsToLose,
     autoFoldBehavior,
+    maxCardsLoserBehavior,
   };
 }
 
