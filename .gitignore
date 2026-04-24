@@ -1,4 +1,13 @@
 TO_DO.md
-Game/ Logic/ Prototype/
-Frontend/ UI/ Prototype/
-Backend/ Server/ Prototype/
+Game Logic Prototype/
+Frontend UI Prototype/
+Backend Server Prototype/
+
+# Build artifacts
+Full Integration Prototype/client/dist/
+
+# Dependency folders
+Full Integration Prototype/client/node_modules/
+Full Integration Prototype/server/node_modules/
+Backend Server Prototype/node_modules/
+FrontEnd UI Prototype/node_modules/
